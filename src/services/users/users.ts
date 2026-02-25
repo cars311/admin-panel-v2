@@ -112,6 +112,30 @@ export const findAllCompanyUsers = async (
   }
 };
 
+export const getCompanyById = async (id: string): Promise<import('../../types/user').CompanyDetails | null> => {
+  try {
+    const response = await api.get(`companies/${id}`);
+    return response.data;
+  } catch (e: any) {
+    return null;
+  }
+};
+
+export const getUsersByCompanyId = async (
+  companyId: string,
+  page = 1,
+  limit = 10,
+): Promise<import('../../types/user').UsersRes> => {
+  try {
+    const response = await api.get(`users/by/company/${companyId}`, {
+      params: { page, limit },
+    });
+    return response.data;
+  } catch (e: any) {
+    return { users: [], totalCount: 0, currentPage: 1, totalPages: 1 };
+  }
+};
+
 export const activateOneCompany = async (
   companyId: string,
 ): Promise<boolean> => {

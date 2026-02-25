@@ -49,9 +49,63 @@ export interface CompanyI {
   _id: string;
   name: string;
   ownerEmail: string;
-  owner?: { email: string };
+  owner?: { _id: string; email: string; firstName: string; lastName: string; phone: string };
   creationDate: string;
   status: CompanyStatus;
+}
+
+export interface CompanyDetails {
+  _id: string;
+  name: string;
+  nameOnDisclosure: string;
+  status: CompanyStatus;
+  type: string;
+  licensed_seats: number;
+  phone: string;
+  billingName: string;
+  billingAddress: string;
+  billingAddressTwo: string;
+  billingCity: string;
+  billingState: string;
+  billingZipCode: string;
+  billingTaxId: string;
+  billingEmail: string;
+  billingCountry: string;
+  soldToName: string;
+  soldToAddress: string;
+  soldToAddressTwo: string;
+  soldToCity: string;
+  soldToState: string;
+  soldToZipCode: string;
+  soldToTaxId: string;
+  soldToEmail: string;
+  soldToCountry: string;
+  dealerData?: {
+    dealerName: string;
+    dealerLegalName: string;
+    dealerId: string;
+    defaultMake: string;
+    state: string;
+    region: string;
+    regionCode: string;
+    area: string;
+    areaCode: string;
+    county: string;
+    city: string;
+    zip: string;
+    address: string;
+    phone: string;
+  };
+  brokerData?: {
+    brokerName: string;
+    brokerLegalName: string;
+    brokerId: string;
+    defaultMake: string;
+  };
+  emailRecipients: { _id: string; email: string; name: string }[];
+  owner?: { _id: string; email: string; firstName: string; lastName: string; phone: string };
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const CompanyStatus = {

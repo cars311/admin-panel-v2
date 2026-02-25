@@ -7,6 +7,7 @@ import LoginPage from './components/login/LoginPage';
 import ReportsPage from './components/reports/ReportsPage';
 import CompaniesPage from './components/companies/CompaniesPage';
 import UsersPage from './components/users/UsersPage';
+import CompanyDetailsPage from './components/companies/CompanyDetailsPage';
 
 const App: React.FC = () => {
   return (
@@ -24,7 +25,7 @@ const App: React.FC = () => {
           >
             <Route index element={<ReportsPage />} />
             <Route path="companies" element={<CompaniesPage />} />
-            <Route path="companies/:id" element={<CompaniesPage />} />
+            <Route path="companies/:id" element={<CompanyDetailsPage />} />
             <Route path="users" element={<UsersPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
