@@ -307,23 +307,22 @@ const UsersPage: React.FC = () => {
   };
 
   return (
-    <div>
+    <>
       <div className={styles.header}>
         <Title1>Users</Title1>
       </div>
 
-      <Card>
-        <TabList
-          selectedValue={selectedTab}
-          onTabSelect={(_, data) => setSelectedTab(data.value as string)}
-          style={{ marginBottom: 16 }}
-        >
-          <Tab value="general">General</Tab>
-          <Tab value="activity">Activity</Tab>
-        </TabList>
+      <TabList
+        selectedValue={selectedTab}
+        onTabSelect={(_, data) => setSelectedTab(data.value as string)}
+      >
+        <Tab value="general">General</Tab>
+        <Tab value="activity">Activity</Tab>
+      </TabList>
 
+      <div className={styles.tabContent}>
         {selectedTab === 'general' && (
-          <div className={styles.tabContent}>
+          <>
             <FilterBar
               isDirty={isGeneralDirty}
               onApply={() => { setAppliedGeneralFilters(draftGeneralFilters); setPage(1); }}
@@ -387,7 +386,7 @@ const UsersPage: React.FC = () => {
               </Field>
             </FilterBar>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <Button
                 appearance="subtle"
                 icon={<ArrowDownloadRegular />}
@@ -398,107 +397,109 @@ const UsersPage: React.FC = () => {
               </Button>
             </div>
 
-            {isLoading && users.length === 0 ? (
-              <div className={styles.centered}>
-                <Spinner size="large" label="Loading users..." />
-              </div>
-            ) : (
-              <>
-                <div className={styles.tableWrapper}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th className={styles.th}>Company</th>
-                        <th className={styles.th}>First Name</th>
-                        <th className={styles.th}>Last Name</th>
-                        <th className={styles.th}>Email</th>
-                        <th className={styles.th}>Roles</th>
-                        <th className={styles.th}>SignIn Date</th>
-                        <th className={styles.th}>Latest Login</th>
-                        <th className={styles.th}>Trial Days</th>
-                        <th className={styles.th}>Billing Start</th>
-                        <th className={styles.th}>Status</th>
-                        <th className={styles.th} style={{ textAlign: 'center' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.length === 0 ? (
+            <Card>
+              {isLoading && users.length === 0 ? (
+                <div className={styles.centered}>
+                  <Spinner size="large" label="Loading users..." />
+                </div>
+              ) : (
+                <>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
                         <tr>
-                          <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
-                            <Body1>No users found</Body1>
-                          </td>
+                          <th className={styles.th}>Company</th>
+                          <th className={styles.th}>First Name</th>
+                          <th className={styles.th}>Last Name</th>
+                          <th className={styles.th}>Email</th>
+                          <th className={styles.th}>Roles</th>
+                          <th className={styles.th}>SignIn Date</th>
+                          <th className={styles.th}>Latest Login</th>
+                          <th className={styles.th}>Trial Days</th>
+                          <th className={styles.th}>Billing Start</th>
+                          <th className={styles.th}>Status</th>
+                          <th className={styles.th} style={{ textAlign: 'center' }}>Actions</th>
                         </tr>
-                      ) : (
-                        users.map((u) => (
-                          <tr key={u._id} className={styles.tr}>
-                            <td className={styles.td}>{(u as any).companyName || '—'}</td>
-                            <td className={styles.td}>{u.firstName}</td>
-                            <td className={styles.td}>{u.lastName}</td>
-                            <td className={styles.td}>{u.email}</td>
-                            <td className={styles.td}>
-                              {u.roles?.length
-                                ? u.roles.map((r) => convertUserRole(r)).join(', ')
-                                : 'None'}
-                            </td>
-                            <td className={styles.td}>
-                              {u.activatedAt ? formatShortDateTime(u.activatedAt) : 'None'}
-                            </td>
-                            <td className={styles.td}>
-                              {u.lastLogin ? formatShortDateTime(u.lastLogin) : 'None'}
-                            </td>
-                            <td className={styles.td}>
-                              {u.isTrial ? u.trialDays : 'None'}
-                            </td>
-                            <td className={styles.td}>
-                              {formatShortDateTime(u.billingStartAt)}
-                            </td>
-                            <td className={styles.td}>{getStatusBadge(u.status)}</td>
-                            <td className={styles.td}>
-                              <div className={styles.actions}>
-                                {u.status === 'deactivated' && u.email !== currentUser.email && (
-                                  <Button
-                                    appearance="subtle"
-                                    icon={<CheckmarkCircleRegular />}
-                                    size="small"
-                                    title="Activate"
-                                    onClick={() => setUserToActivate(u._id)}
-                                  />
-                                )}
-                                {['invited', 'active'].includes(u.status) &&
-                                  u.email !== currentUser.email && (
-                                    <Button
-                                      appearance="subtle"
-                                      icon={<DeleteRegular />}
-                                      size="small"
-                                      title="Deactivate"
-                                      onClick={() => setUserToDeactivate(u._id)}
-                                    />
-                                  )}
-                              </div>
+                      </thead>
+                      <tbody>
+                        {users.length === 0 ? (
+                          <tr>
+                            <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
+                              <Body1>No users found</Body1>
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        ) : (
+                          users.map((u) => (
+                            <tr key={u._id} className={styles.tr}>
+                              <td className={styles.td}>{(u as any).companyName || '—'}</td>
+                              <td className={styles.td}>{u.firstName}</td>
+                              <td className={styles.td}>{u.lastName}</td>
+                              <td className={styles.td}>{u.email}</td>
+                              <td className={styles.td}>
+                                {u.roles?.length
+                                  ? u.roles.map((r) => convertUserRole(r)).join(', ')
+                                  : 'None'}
+                              </td>
+                              <td className={styles.td}>
+                                {u.activatedAt ? formatShortDateTime(u.activatedAt) : 'None'}
+                              </td>
+                              <td className={styles.td}>
+                                {u.lastLogin ? formatShortDateTime(u.lastLogin) : 'None'}
+                              </td>
+                              <td className={styles.td}>
+                                {u.isTrial ? u.trialDays : 'None'}
+                              </td>
+                              <td className={styles.td}>
+                                {formatShortDateTime(u.billingStartAt)}
+                              </td>
+                              <td className={styles.td}>{getStatusBadge(u.status)}</td>
+                              <td className={styles.td}>
+                                <div className={styles.actions}>
+                                  {u.status === 'deactivated' && u.email !== currentUser.email && (
+                                    <Button
+                                      appearance="subtle"
+                                      icon={<CheckmarkCircleRegular />}
+                                      size="small"
+                                      title="Activate"
+                                      onClick={() => setUserToActivate(u._id)}
+                                    />
+                                  )}
+                                  {['invited', 'active'].includes(u.status) &&
+                                    u.email !== currentUser.email && (
+                                      <Button
+                                        appearance="subtle"
+                                        icon={<DeleteRegular />}
+                                        size="small"
+                                        title="Deactivate"
+                                        onClick={() => setUserToDeactivate(u._id)}
+                                      />
+                                    )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-                <TablePagination
-                  page={page}
-                  totalPages={totalPages}
-                  totalCount={totalCount}
-                  pageSize={pageSize}
-                  onPageChange={setPage}
-                  onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
-                  itemLabel="users"
-                />
-              </>
-            )}
-          </div>
+                  <TablePagination
+                    page={page}
+                    totalPages={totalPages}
+                    totalCount={totalCount}
+                    pageSize={pageSize}
+                    onPageChange={setPage}
+                    onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+                    itemLabel="users"
+                  />
+                </>
+              )}
+            </Card>
+          </>
         )}
 
         {selectedTab === 'activity' && (
-          <div className={styles.tabContent}>
+          <>
             <FilterBar
               isDirty={isActivityDirty}
               onApply={() => { setAppliedActivityFilters(draftActivityFilters); setActivityPage(1); }}
@@ -562,7 +563,7 @@ const UsersPage: React.FC = () => {
               </Field>
             </FilterBar>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
               <Button
                 appearance="subtle"
                 icon={<ArrowDownloadRegular />}
@@ -573,71 +574,73 @@ const UsersPage: React.FC = () => {
               </Button>
             </div>
 
-            {isActivityLoading ? (
-              <div className={styles.centered}>
-                <Spinner size="large" label="Loading activity..." />
-              </div>
-            ) : (
-              <>
-                <div className={styles.tableWrapper}>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr>
-                        <th className={styles.th}>First Name</th>
-                        <th className={styles.th}>Last Name</th>
-                        <th className={styles.th}>Email</th>
-                        <th className={styles.th}>Company</th>
-                        <th className={styles.th}>Status</th>
-                        <th className={styles.th}>Deactivation Date</th>
-                        <th className={styles.th}>Billing Start</th>
-                        <th className={styles.th}>Last Login</th>
-                        <th className={styles.th}>Activity Date</th>
-                        <th className={styles.th}>Quotes</th>
-                        <th className={styles.th}>Deals</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activitySlice.length === 0 ? (
-                        <tr>
-                          <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
-                            <Body1>No activity found</Body1>
-                          </td>
-                        </tr>
-                      ) : (
-                        activitySlice.map((u, idx) => (
-                          <tr key={`${u._id}-${u.date}-${idx}`} className={styles.tr}>
-                            <td className={styles.td}>{u.firstName}</td>
-                            <td className={styles.td}>{u.lastName}</td>
-                            <td className={styles.td}>{u.email}</td>
-                            <td className={styles.td}>{u.companyName}</td>
-                            <td className={styles.td}>{u.status}</td>
-                            <td className={styles.td}>{u.deactivatedAt}</td>
-                            <td className={styles.td}>{u.billingStartAt}</td>
-                            <td className={styles.td}>{u.lastLogin}</td>
-                            <td className={styles.td}>{u.date}</td>
-                            <td className={styles.td}>{u.quotesCount}</td>
-                            <td className={styles.td}>{u.dealsCount}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+            <Card>
+              {isActivityLoading ? (
+                <div className={styles.centered}>
+                  <Spinner size="large" label="Loading activity..." />
                 </div>
+              ) : (
+                <>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th className={styles.th}>First Name</th>
+                          <th className={styles.th}>Last Name</th>
+                          <th className={styles.th}>Email</th>
+                          <th className={styles.th}>Company</th>
+                          <th className={styles.th}>Status</th>
+                          <th className={styles.th}>Deactivation Date</th>
+                          <th className={styles.th}>Billing Start</th>
+                          <th className={styles.th}>Last Login</th>
+                          <th className={styles.th}>Activity Date</th>
+                          <th className={styles.th}>Quotes</th>
+                          <th className={styles.th}>Deals</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activitySlice.length === 0 ? (
+                          <tr>
+                            <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
+                              <Body1>No activity found</Body1>
+                            </td>
+                          </tr>
+                        ) : (
+                          activitySlice.map((u, idx) => (
+                            <tr key={`${u._id}-${u.date}-${idx}`} className={styles.tr}>
+                              <td className={styles.td}>{u.firstName}</td>
+                              <td className={styles.td}>{u.lastName}</td>
+                              <td className={styles.td}>{u.email}</td>
+                              <td className={styles.td}>{u.companyName}</td>
+                              <td className={styles.td}>{u.status}</td>
+                              <td className={styles.td}>{u.deactivatedAt}</td>
+                              <td className={styles.td}>{u.billingStartAt}</td>
+                              <td className={styles.td}>{u.lastLogin}</td>
+                              <td className={styles.td}>{u.date}</td>
+                              <td className={styles.td}>{u.quotesCount}</td>
+                              <td className={styles.td}>{u.dealsCount}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
 
-                <TablePagination
-                  page={activityPage}
-                  totalPages={activityTotalPages || 1}
-                  totalCount={displayedActivity.length}
-                  pageSize={activityPageSize}
-                  onPageChange={setActivityPage}
-                  onPageSizeChange={(s) => { setActivityPageSize(s); setActivityPage(1); }}
-                  itemLabel="records"
-                />
-              </>
-            )}
-          </div>
+                  <TablePagination
+                    page={activityPage}
+                    totalPages={activityTotalPages || 1}
+                    totalCount={displayedActivity.length}
+                    pageSize={activityPageSize}
+                    onPageChange={setActivityPage}
+                    onPageSizeChange={(s) => { setActivityPageSize(s); setActivityPage(1); }}
+                    itemLabel="records"
+                  />
+                </>
+              )}
+            </Card>
+          </>
         )}
-      </Card>
+      </div>
 
       {userToActivate && (
         <ConfirmDialog
@@ -658,7 +661,7 @@ const UsersPage: React.FC = () => {
           onCancel={() => setUserToDeactivate('')}
         />
       )}
-    </div>
+    </>
   );
 };
 
