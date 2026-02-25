@@ -9,12 +9,18 @@ import {
   Body1,
   MessageBar,
   MessageBarBody,
+  Dialog,
+  DialogSurface,
+  DialogTitle,
+  DialogBody,
+  DialogContent,
+  DialogActions,
   makeStyles,
   tokens,
 } from '@fluentui/react-components';
 import { EyeRegular, EyeOffRegular } from '@fluentui/react-icons';
 import { useAuth } from '../../context/AuthContext';
-import logo from '../../assets/images/ai-sales-logo.svg';
+import logo from '../../assets/images/ai-sales-logo-dark.svg';
 
 const useStyles = makeStyles({
   container: {
@@ -100,6 +106,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showUndertakeDialog, setShowUndertakeDialog] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +117,24 @@ const LoginPage: React.FC = () => {
 
     try {
       const result = await login({ email, password });
+      if (result.message === 'This user is already logged in') {
+        setShowUndertakeDialog(true);
+      } else if (result.message) {
+        setErrorMessage(result.message);
+      }
+    } catch (err: any) {
+      setErrorMessage('An unexpected error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUndertakeSession = async () => {
+    setShowUndertakeDialog(false);
+    setIsLoading(true);
+    setErrorMessage('');
+    try {
+      const result = await login({ email, password, isUndertakeSession: true });
       if (result.message) {
         setErrorMessage(result.message);
       }
@@ -189,6 +214,26 @@ const LoginPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <Dialog open={showUndertakeDialog} onOpenChange={(_, data) => { if (!data.open) setShowUndertakeDialog(false); }}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>Session Already Active</DialogTitle>
+            <DialogContent>
+              This account is already logged in on another device or browser.
+              Do you want to sign out the other session and continue here?
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setShowUndertakeDialog(false)}>
+                Cancel
+              </Button>
+              <Button appearance="primary" onClick={handleUndertakeSession}>
+                Take Over Session
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </div>
   );
 };
