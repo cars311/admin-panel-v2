@@ -19,7 +19,7 @@ import {
   SignOutRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../context/AuthContext';
-import logo from '../../assets/images/ai-sales-logo.svg';
+import logo from '../../assets/images/ai-sales-logo-dark.svg';
 
 const NAV_WIDTH = 240;
 
