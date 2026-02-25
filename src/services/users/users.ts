@@ -8,10 +8,16 @@ import type {
 import { sortBy, groupBy, merge, capitalize } from 'lodash';
 import { formatShortDateTime } from '../../utils/formatDate';
 
-export const getAllUsers = async (page = 1, limit = 10): Promise<UsersRes> => {
+export const getAllUsers = async (
+  page = 1,
+  limit = 10,
+  search?: string,
+  status?: string,
+  role?: string,
+): Promise<UsersRes> => {
   try {
     const response = await api.get('users', {
-      params: { page, limit },
+      params: { page, limit, search: search || undefined, status: status || undefined, role: role || undefined },
     });
     return response.data;
   } catch (e: any) {
@@ -96,10 +102,12 @@ export const deactivateUserFromCompany = async (
 export const findAllCompanyUsers = async (
   page = 1,
   limit = 10,
+  search?: string,
+  status?: string,
 ): Promise<CompanyUsersRes> => {
   try {
     const response = await api.get('users/by/company-users', {
-      params: { page, limit },
+      params: { page, limit, search: search || undefined, status: status || undefined },
     });
     return response.data;
   } catch (e: any) {

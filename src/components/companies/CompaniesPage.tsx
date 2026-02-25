@@ -11,6 +11,10 @@ import {
   MessageBar,
   MessageBarBody,
   Link,
+  Input,
+  Dropdown,
+  Option,
+  Field,
 } from '@fluentui/react-components';
 import { AddRegular, CheckmarkCircleRegular, DeleteRegular } from '@fluentui/react-icons';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +28,10 @@ import { CompanyStatus } from '../../types/user';
 import { formatShortDateTime } from '../../utils/formatDate';
 import ConfirmDialog from '../common/ConfirmDialog';
 import CreateCompanyModal from './CreateCompanyModal';
+import FilterBar from '../common/FilterBar';
+import TablePagination from '../common/TablePagination';
+
+const allCompanyStatuses = Object.values(CompanyStatus);
 
 const useStyles = makeStyles({
   header: {
@@ -56,18 +64,6 @@ const useStyles = makeStyles({
       backgroundColor: tokens.colorNeutralBackground1Hover,
     },
   },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 0',
-    gap: '12px',
-  },
-  paginationButtons: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-  },
   actions: {
     display: 'flex',
     gap: '4px',
@@ -77,56 +73,76 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     padding: '40px',
   },
+  tableWrapper: {
+    overflowX: 'auto',
+  },
 });
+
+const defaultFilters = { search: '', status: '' };
 
 const CompaniesPage: React.FC = () => {
   const styles = useStyles();
   const navigate = useNavigate();
 
   const [companies, setCompanies] = useState<CompanyI[]>([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Draft filter state (what user is editing)
+  const [draftFilters, setDraftFilters] = useState(defaultFilters);
+  // Applied filter state (what is actually sent to backend)
+  const [appliedFilters, setAppliedFilters] = useState(defaultFilters);
+
+  const isDirty =
+    draftFilters.search !== appliedFilters.search ||
+    draftFilters.status !== appliedFilters.status;
 
   const [companyToActivate, setCompanyToActivate] = useState<string>('');
   const [companyToDeactivate, setCompanyToDeactivate] = useState<string>('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  const fetchCompanies = useCallback(async (page: number, size: number) => {
-    setIsLoading(true);
-    const res = await findAllCompanyUsers(page + 1, size);
-    setCompanies(res.companies);
-    setPageIndex(res.currentPage - 1);
-    setTotalCount(res.totalCount);
-    setIsLoading(false);
-  }, []);
+  const fetchCompanies = useCallback(
+    async (p: number, size: number, filters: typeof defaultFilters) => {
+      setIsLoading(true);
+      const res = await findAllCompanyUsers(p, size, filters.search || undefined, filters.status || undefined);
+      setCompanies(res.companies);
+      setTotalCount(res.totalCount);
+      setTotalPages(res.totalPages);
+      setIsLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchCompanies(pageIndex, pageSize);
-  }, []);
+    fetchCompanies(page, pageSize, appliedFilters);
+  }, [page, pageSize, appliedFilters]);
+
+  const handleApply = () => {
+    setAppliedFilters(draftFilters);
+    setPage(1);
+  };
+
+  const handleClear = () => {
+    setDraftFilters(defaultFilters);
+  };
 
   const handleActivate = async (id: string) => {
     setIsLoading(true);
     setCompanyToActivate('');
     await activateOneCompany(id);
-    await fetchCompanies(pageIndex, pageSize);
+    await fetchCompanies(page, pageSize, appliedFilters);
   };
 
   const handleDeactivate = async (id: string) => {
     setIsLoading(true);
     setCompanyToDeactivate('');
     await deactivateOneCompany(id);
-    await fetchCompanies(pageIndex, pageSize);
+    await fetchCompanies(page, pageSize, appliedFilters);
   };
-
-  const handlePageChange = (newPage: number) => {
-    setPageIndex(newPage);
-    fetchCompanies(newPage, pageSize);
-  };
-
-  const totalPages = Math.ceil(totalCount / pageSize);
 
   const getStatusBadge = (status: CompanyStatus) => {
     switch (status) {
@@ -160,6 +176,33 @@ const CompaniesPage: React.FC = () => {
         </MessageBar>
       )}
 
+      <FilterBar isDirty={isDirty} onApply={handleApply} onClear={handleClear}>
+        <Field label="Search">
+          <Input
+            placeholder="Name..."
+            value={draftFilters.search}
+            onChange={(_, d) => setDraftFilters((f) => ({ ...f, search: d.value }))}
+            style={{ minWidth: 200 }}
+          />
+        </Field>
+        <Field label="Status">
+          <Dropdown
+            placeholder="All Statuses"
+            value={draftFilters.status || undefined}
+            selectedOptions={draftFilters.status ? [draftFilters.status] : []}
+            onOptionSelect={(_, d) =>
+              setDraftFilters((f) => ({ ...f, status: d.optionValue as string }))
+            }
+            style={{ minWidth: 160 }}
+          >
+            <Option value="">All Statuses</Option>
+            {allCompanyStatuses.map((s) => (
+              <Option key={s} value={s}>{s}</Option>
+            ))}
+          </Dropdown>
+        </Field>
+      </FilterBar>
+
       <Card>
         {isLoading && companies.length === 0 ? (
           <div className={styles.centered}>
@@ -167,96 +210,81 @@ const CompaniesPage: React.FC = () => {
           </div>
         ) : (
           <>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th className={styles.th}>Company Name</th>
-                  <th className={styles.th}>Owner Email</th>
-                  <th className={styles.th}>Registration Date</th>
-                  <th className={styles.th}>Status</th>
-                  <th className={styles.th} style={{ textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {companies.length === 0 ? (
+            <div className={styles.tableWrapper}>
+              <table className={styles.table}>
+                <thead>
                   <tr>
-                    <td className={styles.td} colSpan={5} style={{ textAlign: 'center' }}>
-                      <Body1>No companies found</Body1>
-                    </td>
+                    <th className={styles.th}>Company Name</th>
+                    <th className={styles.th}>Owner Email</th>
+                    <th className={styles.th}>Registration Date</th>
+                    <th className={styles.th}>Status</th>
+                    <th className={styles.th} style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
-                ) : (
-                  companies.map((company) => (
-                    <tr key={company._id} className={styles.tr}>
-                      <td className={styles.td}>
-                        <Link onClick={() => navigate(`/companies/${company._id}`)}>
-                          {company.name}
-                        </Link>
-                      </td>
-                      <td className={styles.td}>
-                        {company.owner?.email || company.ownerEmail || '—'}
-                      </td>
-                      <td className={styles.td}>
-                        {company.creationDate
-                          ? formatShortDateTime(company.creationDate)
-                          : 'None'}
-                      </td>
-                      <td className={styles.td}>
-                        {getStatusBadge(company.status)}
-                      </td>
-                      <td className={styles.td}>
-                        <div className={styles.actions} style={{ justifyContent: 'center' }}>
-                          {company.status === CompanyStatus.DEACTIVATED && (
-                            <Button
-                              appearance="subtle"
-                              icon={<CheckmarkCircleRegular />}
-                              size="small"
-                              title="Activate"
-                              onClick={() => setCompanyToActivate(company._id)}
-                            />
-                          )}
-                          {company.status !== CompanyStatus.DEACTIVATED && (
-                            <Button
-                              appearance="subtle"
-                              icon={<DeleteRegular />}
-                              size="small"
-                              title="Deactivate"
-                              onClick={() => setCompanyToDeactivate(company._id)}
-                            />
-                          )}
-                        </div>
+                </thead>
+                <tbody>
+                  {companies.length === 0 ? (
+                    <tr>
+                      <td className={styles.td} colSpan={5} style={{ textAlign: 'center' }}>
+                        <Body1>No companies found</Body1>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-
-            <div className={styles.pagination}>
-              <Body1 style={{ color: tokens.colorNeutralForeground3 }}>
-                Showing {companies.length} of {totalCount} companies
-              </Body1>
-              <div className={styles.paginationButtons}>
-                <Button
-                  appearance="subtle"
-                  size="small"
-                  disabled={pageIndex === 0}
-                  onClick={() => handlePageChange(pageIndex - 1)}
-                >
-                  Previous
-                </Button>
-                <Body1>
-                  Page {pageIndex + 1} of {totalPages || 1}
-                </Body1>
-                <Button
-                  appearance="subtle"
-                  size="small"
-                  disabled={pageIndex >= totalPages - 1}
-                  onClick={() => handlePageChange(pageIndex + 1)}
-                >
-                  Next
-                </Button>
-              </div>
+                  ) : (
+                    companies.map((company) => (
+                      <tr key={company._id} className={styles.tr}>
+                        <td className={styles.td}>
+                          <Link onClick={() => navigate(`/companies/${company._id}`)}>
+                            {company.name}
+                          </Link>
+                        </td>
+                        <td className={styles.td}>
+                          {company.owner?.email || company.ownerEmail || '—'}
+                        </td>
+                        <td className={styles.td}>
+                          {company.creationDate
+                            ? formatShortDateTime(company.creationDate)
+                            : 'None'}
+                        </td>
+                        <td className={styles.td}>
+                          {getStatusBadge(company.status)}
+                        </td>
+                        <td className={styles.td}>
+                          <div className={styles.actions} style={{ justifyContent: 'center' }}>
+                            {company.status === CompanyStatus.DEACTIVATED && (
+                              <Button
+                                appearance="subtle"
+                                icon={<CheckmarkCircleRegular />}
+                                size="small"
+                                title="Activate"
+                                onClick={() => setCompanyToActivate(company._id)}
+                              />
+                            )}
+                            {company.status !== CompanyStatus.DEACTIVATED && (
+                              <Button
+                                appearance="subtle"
+                                icon={<DeleteRegular />}
+                                size="small"
+                                title="Deactivate"
+                                onClick={() => setCompanyToDeactivate(company._id)}
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
+
+            <TablePagination
+              page={page}
+              totalPages={totalPages}
+              totalCount={totalCount}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="companies"
+            />
           </>
         )}
       </Card>
@@ -289,7 +317,7 @@ const CompaniesPage: React.FC = () => {
           if (success) {
             setSuccessMessage('Company created successfully');
             setTimeout(() => setSuccessMessage(''), 5000);
-            fetchCompanies(pageIndex, pageSize);
+            fetchCompanies(page, pageSize, appliedFilters);
           }
         }}
       />

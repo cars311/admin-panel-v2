@@ -12,6 +12,8 @@ import {
   TabList,
   Dropdown,
   Option,
+  Input,
+  Field,
 } from '@fluentui/react-components';
 import {
   ArrowDownloadRegular,
@@ -28,9 +30,12 @@ import {
   findAllCompanyUsers,
 } from '../../services/users/users';
 import type { CompanyUser, CompanyUserActivity } from '../../types/user';
+import { UserRole } from '../../types/user';
 import { convertUserRole } from '../../utils/convertUserRole';
 import { formatShortDateTime, capitalize } from '../../utils/formatDate';
 import ConfirmDialog from '../common/ConfirmDialog';
+import FilterBar from '../common/FilterBar';
+import TablePagination from '../common/TablePagination';
 
 const useStyles = makeStyles({
   header: {
@@ -65,17 +70,6 @@ const useStyles = makeStyles({
       backgroundColor: tokens.colorNeutralBackground1Hover,
     },
   },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 0',
-  },
-  paginationButtons: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-  },
   actions: {
     display: 'flex',
     gap: '4px',
@@ -86,23 +80,16 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     padding: '40px',
   },
-  filters: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
-    marginBottom: '16px',
-    flexWrap: 'wrap',
-  },
   tabContent: {
     marginTop: '16px',
-  },
-  exportBtn: {
-    marginLeft: 'auto',
   },
   tableWrapper: {
     overflowX: 'auto',
   },
 });
+
+const allUserStatuses = ['active', 'invited', 'deactivated'];
+const allUserRoles = Object.values(UserRole);
 
 const dayOptions = [
   { key: '7_days', text: '7 days' },
@@ -111,6 +98,9 @@ const dayOptions = [
   { key: '60_days', text: '60 days' },
 ];
 
+const defaultGeneralFilters = { search: '', status: '', role: '' };
+const defaultActivityFilters = { company: 'all', days: '7_days' };
+
 const UsersPage: React.FC = () => {
   const styles = useStyles();
   const { user: currentUser } = useAuth();
@@ -118,73 +108,90 @@ const UsersPage: React.FC = () => {
 
   // General tab state
   const [users, setUsers] = useState<CompanyUser[]>([]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize] = useState(10);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [userToActivate, setUserToActivate] = useState('');
   const [userToDeactivate, setUserToDeactivate] = useState('');
 
+  const [draftGeneralFilters, setDraftGeneralFilters] = useState(defaultGeneralFilters);
+  const [appliedGeneralFilters, setAppliedGeneralFilters] = useState(defaultGeneralFilters);
+  const isGeneralDirty =
+    draftGeneralFilters.search !== appliedGeneralFilters.search ||
+    draftGeneralFilters.status !== appliedGeneralFilters.status ||
+    draftGeneralFilters.role !== appliedGeneralFilters.role;
+
   // Activity tab state
   const [activityUsers, setActivityUsers] = useState<CompanyUserActivity[]>([]);
   const [displayedActivity, setDisplayedActivity] = useState<CompanyUserActivity[]>([]);
-  const [activityPageIndex, setActivityPageIndex] = useState(0);
-  const [activityPageSize] = useState(10);
-  const [selectedDays, setSelectedDays] = useState('7_days');
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityPageSize, setActivityPageSize] = useState(10);
   const [companies, setCompanies] = useState<{ key: string; text: string }[]>([
     { key: 'all', text: 'All' },
   ]);
-  const [selectedCompany, setSelectedCompany] = useState('all');
   const [isActivityLoading, setIsActivityLoading] = useState(false);
 
-  // General tab
-  const fetchUsers = useCallback(async (page: number, size: number) => {
-    setIsLoading(true);
-    const res = await getAllUsers(page + 1, size);
-    setUsers(res.users);
-    setPageIndex(res.currentPage - 1);
-    setTotalCount(res.totalCount);
-    setIsLoading(false);
-  }, []);
+  const [draftActivityFilters, setDraftActivityFilters] = useState(defaultActivityFilters);
+  const [appliedActivityFilters, setAppliedActivityFilters] = useState(defaultActivityFilters);
+  const isActivityDirty =
+    draftActivityFilters.company !== appliedActivityFilters.company ||
+    draftActivityFilters.days !== appliedActivityFilters.days;
+
+  // General tab fetch
+  const fetchUsers = useCallback(
+    async (p: number, size: number, filters: typeof defaultGeneralFilters) => {
+      setIsLoading(true);
+      const res = await getAllUsers(
+        p,
+        size,
+        filters.search || undefined,
+        filters.status || undefined,
+        filters.role || undefined,
+      );
+      setUsers(res.users);
+      setTotalCount(res.totalCount);
+      setTotalPages(res.totalPages);
+      setIsLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchUsers(0, pageSize);
+    fetchUsers(page, pageSize, appliedGeneralFilters);
+  }, [page, pageSize, appliedGeneralFilters]);
+
+  useEffect(() => {
     loadCompanyOptions();
   }, []);
 
-  // Activity tab
-  useEffect(() => {
-    if (selectedTab === 'activity') {
-      fetchActivity();
-    }
-  }, [selectedDays, selectedTab]);
+  // Activity tab fetch
+  const fetchActivity = useCallback(async (filters: typeof defaultActivityFilters) => {
+    setIsActivityLoading(true);
+    const res = await getAllUsersActivity(filters.days);
+    setActivityUsers(res);
+    setIsActivityLoading(false);
+  }, []);
 
   useEffect(() => {
-    // Reset to first page whenever filters or data change
-    setActivityPageIndex(0);
-    if (selectedCompany === 'all') {
+    if (selectedTab === 'activity') {
+      fetchActivity(appliedActivityFilters);
+    }
+  }, [selectedTab, appliedActivityFilters]);
+
+  // Filter activity by company client-side
+  useEffect(() => {
+    setActivityPage(1);
+    if (appliedActivityFilters.company === 'all') {
       setDisplayedActivity(activityUsers);
     } else {
-      const selectedId = String(selectedCompany);
+      const selectedId = String(appliedActivityFilters.company);
       setDisplayedActivity(
         activityUsers.filter((u) => String(u.companyId || '') === selectedId),
       );
     }
-  }, [selectedCompany, activityUsers]);
-
-  const fetchActivity = async () => {
-    setIsActivityLoading(true);
-    const res = await getAllUsersActivity(selectedDays);
-    setActivityUsers(res);
-    // Immediately reflect new data in the displayed list according to current company filter
-    if (selectedCompany === 'all') {
-      setDisplayedActivity(res);
-    } else {
-      const selectedId = String(selectedCompany);
-      setDisplayedActivity(res.filter((u) => String(u.companyId || '') === selectedId));
-    }
-    setIsActivityLoading(false);
-  };
+  }, [appliedActivityFilters.company, activityUsers]);
 
   const loadCompanyOptions = async () => {
     const res = await findAllCompanyUsers(1, 10000);
@@ -201,26 +208,20 @@ const UsersPage: React.FC = () => {
     setIsLoading(true);
     setUserToActivate('');
     await activateUserFromCompany(id);
-    await fetchUsers(pageIndex, pageSize);
+    await fetchUsers(page, pageSize, appliedGeneralFilters);
   };
 
   const handleDeactivate = async (id: string) => {
     setIsLoading(true);
     setUserToDeactivate('');
     await deactivateUserFromCompany(id);
-    await fetchUsers(pageIndex, pageSize);
+    await fetchUsers(page, pageSize, appliedGeneralFilters);
   };
 
-  const handlePageChange = (newPage: number) => {
-    setPageIndex(newPage);
-    fetchUsers(newPage, pageSize);
-  };
-
-  const totalPages = Math.ceil(totalCount / pageSize);
   const activityTotalPages = Math.ceil(displayedActivity.length / activityPageSize);
   const activitySlice = displayedActivity.slice(
-    activityPageIndex * activityPageSize,
-    activityPageIndex * activityPageSize + activityPageSize,
+    (activityPage - 1) * activityPageSize,
+    (activityPage - 1) * activityPageSize + activityPageSize,
   );
 
   const getStatusBadge = (status: string) => {
@@ -275,8 +276,8 @@ const UsersPage: React.FC = () => {
           String(u.dealsCount),
         ]);
       }
-      const companyName = companies.find((c) => c.key === selectedCompany)?.text || 'All';
-      downloadCsv(rows, `users_activity_${selectedDays}_${companyName}.csv`);
+      const companyName = companies.find((c) => c.key === appliedActivityFilters.company)?.text || 'All';
+      downloadCsv(rows, `users_activity_${appliedActivityFilters.days}_${companyName}.csv`);
     } catch (e) {
       console.error(e);
     }
@@ -308,6 +309,53 @@ const UsersPage: React.FC = () => {
 
         {selectedTab === 'general' && (
           <div className={styles.tabContent}>
+            <FilterBar
+              isDirty={isGeneralDirty}
+              onApply={() => { setAppliedGeneralFilters(draftGeneralFilters); setPage(1); }}
+              onClear={() => setDraftGeneralFilters(defaultGeneralFilters)}
+            >
+              <Field label="Search">
+                <Input
+                  placeholder="Name or email..."
+                  value={draftGeneralFilters.search}
+                  onChange={(_, d) => setDraftGeneralFilters((f) => ({ ...f, search: d.value }))}
+                  style={{ minWidth: 200 }}
+                />
+              </Field>
+              <Field label="Status">
+                <Dropdown
+                  placeholder="All Statuses"
+                  value={draftGeneralFilters.status || undefined}
+                  selectedOptions={draftGeneralFilters.status ? [draftGeneralFilters.status] : []}
+                  onOptionSelect={(_, d) =>
+                    setDraftGeneralFilters((f) => ({ ...f, status: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 140 }}
+                >
+                  <Option value="">All Statuses</Option>
+                  {allUserStatuses.map((s) => (
+                    <Option key={s} value={s}>{capitalize(s)}</Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              <Field label="Role">
+                <Dropdown
+                  placeholder="All Roles"
+                  value={draftGeneralFilters.role || undefined}
+                  selectedOptions={draftGeneralFilters.role ? [draftGeneralFilters.role] : []}
+                  onOptionSelect={(_, d) =>
+                    setDraftGeneralFilters((f) => ({ ...f, role: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 160 }}
+                >
+                  <Option value="">All Roles</Option>
+                  {allUserRoles.map((r) => (
+                    <Option key={r} value={r}>{convertUserRole(r)}</Option>
+                  ))}
+                </Dropdown>
+              </Field>
+            </FilterBar>
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
               <Button
                 appearance="subtle"
@@ -404,32 +452,15 @@ const UsersPage: React.FC = () => {
                   </table>
                 </div>
 
-                <div className={styles.pagination}>
-                  <Body1 style={{ color: tokens.colorNeutralForeground3 }}>
-                    Showing {users.length} of {totalCount} users
-                  </Body1>
-                  <div className={styles.paginationButtons}>
-                    <Button
-                      appearance="subtle"
-                      size="small"
-                      disabled={pageIndex === 0}
-                      onClick={() => handlePageChange(pageIndex - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Body1>
-                      Page {pageIndex + 1} of {totalPages || 1}
-                    </Body1>
-                    <Button
-                      appearance="subtle"
-                      size="small"
-                      disabled={pageIndex >= totalPages - 1}
-                      onClick={() => handlePageChange(pageIndex + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <TablePagination
+                  page={page}
+                  totalPages={totalPages}
+                  totalCount={totalCount}
+                  pageSize={pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+                  itemLabel="users"
+                />
               </>
             )}
           </div>
@@ -437,38 +468,51 @@ const UsersPage: React.FC = () => {
 
         {selectedTab === 'activity' && (
           <div className={styles.tabContent}>
-            <div className={styles.filters}>
-              <Dropdown
-                value={companies.find((c) => c.key === selectedCompany)?.text || 'All'}
-                selectedOptions={[selectedCompany]}
-                onOptionSelect={(_, d) => setSelectedCompany(d.optionValue as string)}
-                style={{ minWidth: 200 }}
-              >
-                {companies.map((c) => (
-                  <Option key={c.key} value={c.key}>
-                    {c.text}
-                  </Option>
-                ))}
-              </Dropdown>
-              <Dropdown
-                value={dayOptions.find((d) => d.key === selectedDays)?.text || '7 days'}
-                selectedOptions={[selectedDays]}
-                onOptionSelect={(_, d) => setSelectedDays(d.optionValue as string)}
-                disabled={isActivityLoading}
-                style={{ minWidth: 120 }}
-              >
-                {dayOptions.map((d) => (
-                  <Option key={d.key} value={d.key}>
-                    {d.text}
-                  </Option>
-                ))}
-              </Dropdown>
+            <FilterBar
+              isDirty={isActivityDirty}
+              onApply={() => { setAppliedActivityFilters(draftActivityFilters); setActivityPage(1); }}
+              onClear={() => setDraftActivityFilters(defaultActivityFilters)}
+            >
+              <Field label="Company">
+                <Dropdown
+                  value={companies.find((c) => c.key === draftActivityFilters.company)?.text || 'All'}
+                  selectedOptions={[draftActivityFilters.company]}
+                  onOptionSelect={(_, d) =>
+                    setDraftActivityFilters((f) => ({ ...f, company: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 200 }}
+                >
+                  {companies.map((c) => (
+                    <Option key={c.key} value={c.key}>
+                      {c.text}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              <Field label="Period">
+                <Dropdown
+                  value={dayOptions.find((d) => d.key === draftActivityFilters.days)?.text || '7 days'}
+                  selectedOptions={[draftActivityFilters.days]}
+                  onOptionSelect={(_, d) =>
+                    setDraftActivityFilters((f) => ({ ...f, days: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 120 }}
+                >
+                  {dayOptions.map((d) => (
+                    <Option key={d.key} value={d.key}>
+                      {d.text}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+            </FilterBar>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
               <Button
                 appearance="subtle"
                 icon={<ArrowDownloadRegular />}
                 onClick={exportActivityCsv}
                 size="small"
-                className={styles.exportBtn}
               >
                 Export CSV
               </Button>
@@ -525,32 +569,15 @@ const UsersPage: React.FC = () => {
                   </table>
                 </div>
 
-                <div className={styles.pagination}>
-                  <Body1 style={{ color: tokens.colorNeutralForeground3 }}>
-                    Showing {activitySlice.length} of {displayedActivity.length} records
-                  </Body1>
-                  <div className={styles.paginationButtons}>
-                    <Button
-                      appearance="subtle"
-                      size="small"
-                      disabled={activityPageIndex === 0}
-                      onClick={() => setActivityPageIndex(activityPageIndex - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Body1>
-                      Page {activityPageIndex + 1} of {activityTotalPages || 1}
-                    </Body1>
-                    <Button
-                      appearance="subtle"
-                      size="small"
-                      disabled={activityPageIndex >= activityTotalPages - 1}
-                      onClick={() => setActivityPageIndex(activityPageIndex + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <TablePagination
+                  page={activityPage}
+                  totalPages={activityTotalPages || 1}
+                  totalCount={displayedActivity.length}
+                  pageSize={activityPageSize}
+                  onPageChange={setActivityPage}
+                  onPageSizeChange={(s) => { setActivityPageSize(s); setActivityPage(1); }}
+                  itemLabel="records"
+                />
               </>
             )}
           </div>

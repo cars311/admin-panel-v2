@@ -13,13 +13,13 @@ import {
   Dropdown,
   Option,
   Input,
+  Field,
   Dialog,
   DialogSurface,
   DialogBody,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Field,
   Switch,
   Tooltip,
   MessageBar,
@@ -51,6 +51,8 @@ import {
 } from '../../types/job-scheduler';
 import { formatShortDateTime } from '../../utils/formatDate';
 import ConfirmDialog from '../common/ConfirmDialog';
+import FilterBar from '../common/FilterBar';
+import TablePagination from '../common/TablePagination';
 
 const allJobTypes = Object.values(JobSchedulerTypesEnum);
 const allStatuses = Object.values(JobSchedulerStatusesEnum);
@@ -121,17 +123,6 @@ const useStyles = makeStyles({
       backgroundColor: tokens.colorNeutralBackground1Hover,
     },
   },
-  pagination: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 0',
-  },
-  paginationButtons: {
-    display: 'flex',
-    gap: '8px',
-    alignItems: 'center',
-  },
   actions: {
     display: 'flex',
     gap: '4px',
@@ -141,13 +132,6 @@ const useStyles = makeStyles({
     display: 'flex',
     justifyContent: 'center',
     padding: '40px',
-  },
-  filters: {
-    display: 'flex',
-    gap: '12px',
-    alignItems: 'center',
-    marginBottom: '16px',
-    flexWrap: 'wrap',
   },
   tabContent: {
     marginTop: '16px',
@@ -163,6 +147,12 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     gap: '16px',
+  },
+  topActions: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'flex-end',
+    marginBottom: '8px',
   },
 });
 
@@ -265,93 +255,128 @@ const TriggerJobModal: React.FC<TriggerJobModalProps> = ({ isOpen, onClose }) =>
 
 // ─── Jobs Tab ───────────────────────────────────────────
 
+const defaultJobFilters = { status: '', jobType: '', dateFrom: '', dateTo: '' };
+
 const JobsTab: React.FC = () => {
   const styles = useStyles();
   const [jobs, setJobs] = useState<JobScheduler[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
-  const [limit] = useState(20);
-  const [filterStatus, setFilterStatus] = useState<string>('');
-  const [filterJobType, setFilterJobType] = useState<string>('');
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  const [pageSize, setPageSize] = useState(20);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
 
-  const fetchJobs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const query: GetJobsQuery = {
-        page,
-        limit,
-        sortBy: 'createdAt',
-        order: 'DESC',
-      };
-      if (filterStatus) query.status = filterStatus as JobSchedulerStatusesEnum;
-      if (filterJobType) query.jobType = filterJobType as JobSchedulerTypesEnum;
-      if (filterDateFrom) query.dateFrom = filterDateFrom;
-      if (filterDateTo) query.dateTo = filterDateTo;
+  // Draft filters (what user is editing in the UI)
+  const [draftFilters, setDraftFilters] = useState(defaultJobFilters);
+  // Applied filters (what is actually sent to backend)
+  const [appliedFilters, setAppliedFilters] = useState(defaultJobFilters);
 
-      const res = await getJobs(query);
-      setJobs(res.jobs);
-      setTotalCount(res.totalCount);
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, [page, limit, filterStatus, filterJobType, filterDateFrom, filterDateTo]);
+  const isDirty =
+    draftFilters.status !== appliedFilters.status ||
+    draftFilters.jobType !== appliedFilters.jobType ||
+    draftFilters.dateFrom !== appliedFilters.dateFrom ||
+    draftFilters.dateTo !== appliedFilters.dateTo;
+
+  const fetchJobs = useCallback(
+    async (p: number, size: number, filters: typeof defaultJobFilters) => {
+      setLoading(true);
+      try {
+        const query: GetJobsQuery = {
+          page: p,
+          limit: size,
+          sortBy: 'createdAt',
+          order: 'DESC',
+        };
+        if (filters.status) query.status = filters.status as JobSchedulerStatusesEnum;
+        if (filters.jobType) query.jobType = filters.jobType as JobSchedulerTypesEnum;
+        if (filters.dateFrom) query.dateFrom = filters.dateFrom;
+        if (filters.dateTo) query.dateTo = filters.dateTo;
+
+        const res = await getJobs(query);
+        setJobs(res.jobs);
+        setTotalCount(res.totalCount);
+        setTotalPages(Math.ceil(res.totalCount / size));
+      } catch {
+        // silent
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+    fetchJobs(page, pageSize, appliedFilters);
+  }, [page, pageSize, appliedFilters, fetchJobs]);
 
-  const totalPages = Math.ceil(totalCount / limit);
+  const handleApply = () => {
+    setAppliedFilters(draftFilters);
+    setPage(1);
+  };
+
+  const handleClear = () => {
+    setDraftFilters(defaultJobFilters);
+  };
 
   return (
     <>
       <TriggerJobModal isOpen={triggerModalOpen} onClose={() => setTriggerModalOpen(false)} />
-      <div className={styles.filters}>
-        <Dropdown
-          placeholder="Status"
-          value={filterStatus || undefined}
-          selectedOptions={filterStatus ? [filterStatus] : []}
-          onOptionSelect={(_, d) => { setFilterStatus(d.optionValue as string); setPage(1); }}
-          style={{ minWidth: 150 }}
-        >
-          <Option value="">All Statuses</Option>
-          {allStatuses.map((s) => (
-            <Option key={s} value={s}>{s}</Option>
-          ))}
-        </Dropdown>
-        <Dropdown
-          placeholder="Job Type"
-          value={filterJobType || undefined}
-          selectedOptions={filterJobType ? [filterJobType] : []}
-          onOptionSelect={(_, d) => { setFilterJobType(d.optionValue as string); setPage(1); }}
-          style={{ minWidth: 220 }}
-        >
-          <Option value="">All Job Types</Option>
-          {allJobTypes.map((t) => (
-            <Option key={t} value={t}>{t}</Option>
-          ))}
-        </Dropdown>
-        <Input
-          type="date"
-          value={filterDateFrom}
-          onChange={(_, d) => { setFilterDateFrom(d.value); setPage(1); }}
-          placeholder="From"
-        />
-        <Input
-          type="date"
-          value={filterDateTo}
-          onChange={(_, d) => { setFilterDateTo(d.value); setPage(1); }}
-          placeholder="To"
-        />
+
+      <FilterBar isDirty={isDirty} onApply={handleApply} onClear={handleClear}>
+        <Field label="Status">
+          <Dropdown
+            placeholder="All Statuses"
+            value={draftFilters.status || undefined}
+            selectedOptions={draftFilters.status ? [draftFilters.status] : []}
+            onOptionSelect={(_, d) =>
+              setDraftFilters((f) => ({ ...f, status: d.optionValue as string }))
+            }
+            style={{ minWidth: 150 }}
+          >
+            <Option value="">All Statuses</Option>
+            {allStatuses.map((s) => (
+              <Option key={s} value={s}>{s}</Option>
+            ))}
+          </Dropdown>
+        </Field>
+        <Field label="Job Type">
+          <Dropdown
+            placeholder="All Job Types"
+            value={draftFilters.jobType || undefined}
+            selectedOptions={draftFilters.jobType ? [draftFilters.jobType] : []}
+            onOptionSelect={(_, d) =>
+              setDraftFilters((f) => ({ ...f, jobType: d.optionValue as string }))
+            }
+            style={{ minWidth: 220 }}
+          >
+            <Option value="">All Job Types</Option>
+            {allJobTypes.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Dropdown>
+        </Field>
+        <Field label="Date From">
+          <Input
+            type="date"
+            value={draftFilters.dateFrom}
+            onChange={(_, d) => setDraftFilters((f) => ({ ...f, dateFrom: d.value }))}
+          />
+        </Field>
+        <Field label="Date To">
+          <Input
+            type="date"
+            value={draftFilters.dateTo}
+            onChange={(_, d) => setDraftFilters((f) => ({ ...f, dateTo: d.value }))}
+          />
+        </Field>
+      </FilterBar>
+
+      <div className={styles.topActions}>
         <Button
           icon={<ArrowClockwiseRegular />}
           appearance="subtle"
-          onClick={fetchJobs}
+          onClick={() => fetchJobs(page, pageSize, appliedFilters)}
         >
           Refresh
         </Button>
@@ -408,29 +433,15 @@ const JobsTab: React.FC = () => {
             </table>
           )}
         </div>
-        {totalPages > 1 && (
-          <div className={styles.pagination}>
-            <Body1>
-              Page {page} of {totalPages} ({totalCount} total)
-            </Body1>
-            <div className={styles.paginationButtons}>
-              <Button
-                appearance="subtle"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </Button>
-              <Button
-                appearance="subtle"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        )}
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalCount={totalCount}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          itemLabel="jobs"
+        />
       </Card>
     </>
   );
