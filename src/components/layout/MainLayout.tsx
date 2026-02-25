@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   makeStyles,
@@ -17,6 +17,8 @@ import {
   BuildingRegular,
   PeopleRegular,
   SignOutRegular,
+  NavigationRegular,
+  CalendarSyncRegular,
 } from '@fluentui/react-icons';
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/images/ai-sales-logo-dark.svg';
@@ -38,9 +40,16 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     padding: '0',
+    transition: 'margin-left 0.2s ease',
+  },
+  sidebarCollapsed: {
+    marginLeft: `-${NAV_WIDTH}px`,
   },
   logoContainer: {
     padding: '24px 24px 16px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   logo: {
     height: '32px',
@@ -111,6 +120,36 @@ const useStyles = makeStyles({
     flex: 1,
     overflow: 'hidden',
   },
+  contentWrapper: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  topBar: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '8px 16px',
+    backgroundColor: '#ffffff',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    minHeight: '48px',
+  },
+  burgerButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+    borderRadius: '6px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    color: tokens.colorNeutralForeground2,
+    fontSize: '20px',
+    '&:hover': {
+      backgroundColor: tokens.colorNeutralBackground1Hover,
+    },
+  },
   content: {
     flex: 1,
     overflow: 'auto',
@@ -123,6 +162,7 @@ const navItems = [
   { path: '/', label: 'Reports', icon: <DataTrendingRegular /> },
   { path: '/companies', label: 'Companies', icon: <BuildingRegular /> },
   { path: '/users', label: 'Users', icon: <PeopleRegular /> },
+  { path: '/scheduled-jobs', label: 'Scheduled Jobs', icon: <CalendarSyncRegular /> },
 ];
 
 const MainLayout: React.FC = () => {
@@ -130,6 +170,7 @@ const MainLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const getUserName = () => {
     const email = user.email || '';
@@ -144,7 +185,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className={styles.root}>
-      <aside className={styles.sidebar}>
+      <aside className={`${styles.sidebar} ${!sidebarOpen ? styles.sidebarCollapsed : ''}`}>
         <div className={styles.logoContainer}>
           <img src={logo} alt="Cars311" className={styles.logo} />
         </div>
@@ -201,9 +242,20 @@ const MainLayout: React.FC = () => {
         </div>
       </aside>
 
-      <main className={styles.content}>
-        <Outlet />
-      </main>
+      <div className={styles.contentWrapper}>
+        <div className={styles.topBar}>
+          <button
+            className={styles.burgerButton}
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            aria-label="Toggle sidebar"
+          >
+            <NavigationRegular />
+          </button>
+        </div>
+        <main className={styles.content}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };

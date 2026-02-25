@@ -8,6 +8,7 @@ import ReportsPage from './components/reports/ReportsPage';
 import CompaniesPage from './components/companies/CompaniesPage';
 import UsersPage from './components/users/UsersPage';
 import CompanyDetailsPage from './components/companies/CompanyDetailsPage';
+import ScheduledJobsPage from './components/scheduled-jobs/ScheduledJobsPage';
 
 const App: React.FC = () => {
   return (
@@ -27,6 +28,7 @@ const App: React.FC = () => {
             <Route path="companies" element={<CompaniesPage />} />
             <Route path="companies/:id" element={<CompanyDetailsPage />} />
             <Route path="users" element={<UsersPage />} />
+            <Route path="scheduled-jobs" element={<ScheduledJobsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
