@@ -32,6 +32,7 @@ import FilterBar from '../common/FilterBar';
 import TablePagination from '../common/TablePagination';
 
 const allCompanyStatuses = Object.values(CompanyStatus);
+const allCompanyTypes = ['broker', 'dealer', 'dealer_used'];
 
 const useStyles = makeStyles({
   header: {
@@ -78,7 +79,7 @@ const useStyles = makeStyles({
   },
 });
 
-const defaultFilters = { search: '', status: '' };
+const defaultFilters = { search: '', status: '', type: 'broker' };
 
 const CompaniesPage: React.FC = () => {
   const styles = useStyles();
@@ -99,7 +100,8 @@ const CompaniesPage: React.FC = () => {
 
   const isDirty =
     draftFilters.search !== appliedFilters.search ||
-    draftFilters.status !== appliedFilters.status;
+    draftFilters.status !== appliedFilters.status ||
+    draftFilters.type !== appliedFilters.type;
 
   const [companyToActivate, setCompanyToActivate] = useState<string>('');
   const [companyToDeactivate, setCompanyToDeactivate] = useState<string>('');
@@ -108,7 +110,7 @@ const CompaniesPage: React.FC = () => {
   const fetchCompanies = useCallback(
     async (p: number, size: number, filters: typeof defaultFilters) => {
       setIsLoading(true);
-      const res = await findAllCompanyUsers(p, size, filters.search || undefined, filters.status || undefined);
+      const res = await findAllCompanyUsers(p, size, filters.search || undefined, filters.status || undefined, filters.type || undefined);
       setCompanies(res.companies);
       setTotalCount(res.totalCount);
       setTotalPages(res.totalPages);
@@ -201,6 +203,22 @@ const CompaniesPage: React.FC = () => {
             ))}
           </Dropdown>
         </Field>
+        <Field label="Type">
+          <Dropdown
+            placeholder="All Types"
+            value={draftFilters.type || undefined}
+            selectedOptions={draftFilters.type ? [draftFilters.type] : []}
+            onOptionSelect={(_, d) =>
+              setDraftFilters((f) => ({ ...f, type: d.optionValue as string }))
+            }
+            style={{ minWidth: 140 }}
+          >
+            <Option value="">All Types</Option>
+            {allCompanyTypes.map((t) => (
+              <Option key={t} value={t}>{t}</Option>
+            ))}
+          </Dropdown>
+        </Field>
       </FilterBar>
 
       <Card>
@@ -216,6 +234,7 @@ const CompaniesPage: React.FC = () => {
                   <tr>
                     <th className={styles.th}>Company Name</th>
                     <th className={styles.th}>Owner Email</th>
+                    <th className={styles.th}>Type</th>
                     <th className={styles.th}>Registration Date</th>
                     <th className={styles.th}>Status</th>
                     <th className={styles.th} style={{ textAlign: 'center' }}>Actions</th>
@@ -224,7 +243,7 @@ const CompaniesPage: React.FC = () => {
                 <tbody>
                   {companies.length === 0 ? (
                     <tr>
-                      <td className={styles.td} colSpan={5} style={{ textAlign: 'center' }}>
+                      <td className={styles.td} colSpan={6} style={{ textAlign: 'center' }}>
                         <Body1>No companies found</Body1>
                       </td>
                     </tr>
@@ -238,6 +257,9 @@ const CompaniesPage: React.FC = () => {
                         </td>
                         <td className={styles.td}>
                           {company.owner?.email || company.ownerEmail || '—'}
+                        </td>
+                        <td className={styles.td}>
+                          {company.type || '—'}
                         </td>
                         <td className={styles.td}>
                           {company.creationDate

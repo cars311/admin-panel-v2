@@ -98,8 +98,9 @@ const dayOptions = [
   { key: '60_days', text: '60 days' },
 ];
 
-const defaultGeneralFilters = { search: '', status: '', role: '' };
-const defaultActivityFilters = { company: 'all', days: '7_days' };
+const allCompanyTypes = ['broker', 'dealer', 'dealer_used'];
+const defaultGeneralFilters = { search: '', status: '', role: '', companyType: 'broker' };
+const defaultActivityFilters = { company: 'all', days: '7_days', search: '', companyType: 'broker' };
 
 const UsersPage: React.FC = () => {
   const styles = useStyles();
@@ -121,7 +122,8 @@ const UsersPage: React.FC = () => {
   const isGeneralDirty =
     draftGeneralFilters.search !== appliedGeneralFilters.search ||
     draftGeneralFilters.status !== appliedGeneralFilters.status ||
-    draftGeneralFilters.role !== appliedGeneralFilters.role;
+    draftGeneralFilters.role !== appliedGeneralFilters.role ||
+    draftGeneralFilters.companyType !== appliedGeneralFilters.companyType;
 
   // Activity tab state
   const [activityUsers, setActivityUsers] = useState<CompanyUserActivity[]>([]);
@@ -137,7 +139,9 @@ const UsersPage: React.FC = () => {
   const [appliedActivityFilters, setAppliedActivityFilters] = useState(defaultActivityFilters);
   const isActivityDirty =
     draftActivityFilters.company !== appliedActivityFilters.company ||
-    draftActivityFilters.days !== appliedActivityFilters.days;
+    draftActivityFilters.days !== appliedActivityFilters.days ||
+    draftActivityFilters.search !== appliedActivityFilters.search ||
+    draftActivityFilters.companyType !== appliedActivityFilters.companyType;
 
   // General tab fetch
   const fetchUsers = useCallback(
@@ -149,6 +153,7 @@ const UsersPage: React.FC = () => {
         filters.search || undefined,
         filters.status || undefined,
         filters.role || undefined,
+        filters.companyType || undefined,
       );
       setUsers(res.users);
       setTotalCount(res.totalCount);
@@ -180,18 +185,28 @@ const UsersPage: React.FC = () => {
     }
   }, [selectedTab, appliedActivityFilters]);
 
-  // Filter activity by company client-side
+  // Filter activity client-side
   useEffect(() => {
     setActivityPage(1);
-    if (appliedActivityFilters.company === 'all') {
-      setDisplayedActivity(activityUsers);
-    } else {
+    let filtered = activityUsers;
+    if (appliedActivityFilters.company !== 'all') {
       const selectedId = String(appliedActivityFilters.company);
-      setDisplayedActivity(
-        activityUsers.filter((u) => String(u.companyId || '') === selectedId),
+      filtered = filtered.filter((u) => String(u.companyId || '') === selectedId);
+    }
+    if (appliedActivityFilters.search) {
+      const q = appliedActivityFilters.search.toLowerCase();
+      filtered = filtered.filter(
+        (u) =>
+          u.firstName?.toLowerCase().includes(q) ||
+          u.lastName?.toLowerCase().includes(q) ||
+          u.email?.toLowerCase().includes(q),
       );
     }
-  }, [appliedActivityFilters.company, activityUsers]);
+    if (appliedActivityFilters.companyType) {
+      filtered = filtered.filter((u) => (u as any).companyType === appliedActivityFilters.companyType);
+    }
+    setDisplayedActivity(filtered);
+  }, [appliedActivityFilters.company, appliedActivityFilters.search, appliedActivityFilters.companyType, activityUsers]);
 
   const loadCompanyOptions = async () => {
     const res = await findAllCompanyUsers(1, 10000);
@@ -354,6 +369,22 @@ const UsersPage: React.FC = () => {
                   ))}
                 </Dropdown>
               </Field>
+              <Field label="Company Type">
+                <Dropdown
+                  placeholder="All Types"
+                  value={draftGeneralFilters.companyType || undefined}
+                  selectedOptions={draftGeneralFilters.companyType ? [draftGeneralFilters.companyType] : []}
+                  onOptionSelect={(_, d) =>
+                    setDraftGeneralFilters((f) => ({ ...f, companyType: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 140 }}
+                >
+                  <Option value="">All Types</Option>
+                  {allCompanyTypes.map((t) => (
+                    <Option key={t} value={t}>{t}</Option>
+                  ))}
+                </Dropdown>
+              </Field>
             </FilterBar>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -502,6 +533,30 @@ const UsersPage: React.FC = () => {
                     <Option key={d.key} value={d.key}>
                       {d.text}
                     </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              <Field label="Search">
+                <Input
+                  placeholder="Name or email..."
+                  value={draftActivityFilters.search}
+                  onChange={(_, d) => setDraftActivityFilters((f) => ({ ...f, search: d.value }))}
+                  style={{ minWidth: 200 }}
+                />
+              </Field>
+              <Field label="Company Type">
+                <Dropdown
+                  placeholder="All Types"
+                  value={draftActivityFilters.companyType || undefined}
+                  selectedOptions={draftActivityFilters.companyType ? [draftActivityFilters.companyType] : []}
+                  onOptionSelect={(_, d) =>
+                    setDraftActivityFilters((f) => ({ ...f, companyType: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 140 }}
+                >
+                  <Option value="">All Types</Option>
+                  {allCompanyTypes.map((t) => (
+                    <Option key={t} value={t}>{t}</Option>
                   ))}
                 </Dropdown>
               </Field>
