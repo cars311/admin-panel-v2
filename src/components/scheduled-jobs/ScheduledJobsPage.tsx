@@ -30,6 +30,7 @@ import {
   EditRegular,
   DeleteRegular,
   ArrowClockwiseRegular,
+  PlayRegular,
 } from '@fluentui/react-icons';
 import {
   getJobs,
@@ -37,6 +38,7 @@ import {
   createConfig,
   updateConfig,
   deleteConfig,
+  triggerJob,
 } from '../../services/job-scheduler/job-scheduler';
 import type {
   JobScheduler,
@@ -52,6 +54,39 @@ import ConfirmDialog from '../common/ConfirmDialog';
 
 const allJobTypes = Object.values(JobSchedulerTypesEnum);
 const allStatuses = Object.values(JobSchedulerStatusesEnum);
+
+const triggerableJobs: { label: string; endpoint: string }[] = [
+  { label: 'Sync Vehicles from ADS', endpoint: 'sync-vehicles-ads' },
+  { label: 'Sync Data from Lender Desk', endpoint: 'sync-data-lender-desk' },
+  { label: 'Sync Data from Market Scan', endpoint: 'sync-data-market-scan' },
+  { label: 'Pull Rebates from Data Providers', endpoint: 'pull-rebates-from-data-providers' },
+  { label: 'Map Rebates', endpoint: 'map-rebates' },
+  { label: 'Get MS Programs', endpoint: 'get-ms-programs' },
+  { label: 'Map Programs', endpoint: 'map-programs' },
+  { label: 'Lender Desk — Tier Raws', endpoint: 'lender-desk-tier-raws' },
+  { label: 'Lender Desk — Division Code', endpoint: 'lender-desk-division-code' },
+  { label: 'Lender Desk — Style IDs', endpoint: 'lender-desk-style-ids' },
+  { label: 'Lender Desk — Lenders', endpoint: 'lender-desk-lenders' },
+  { label: 'Lender Desk — Rebates', endpoint: 'lender-desk-rebates' },
+  { label: 'Market Scan — Lenders', endpoint: 'market-scan-lenders' },
+  { label: 'Market Scan — Rules and Fees', endpoint: 'market-scan-rules-and-fees' },
+  { label: 'Market Scan — Manufacturers', endpoint: 'market-scan-manufacturers' },
+  { label: 'Market Scan — Makes', endpoint: 'market-scan-makes' },
+  { label: 'Market Scan — Models', endpoint: 'market-scan-models' },
+  { label: 'Market Scan — Bank Fee Markups', endpoint: 'market-scan-bank-fee-markups' },
+  { label: 'Market Scan — Vehicle Equipment Residualizable', endpoint: 'market-scan-vehicle-equipment-residualizable' },
+  { label: 'Market Scan — Terms', endpoint: 'market-scan-terms' },
+  { label: 'Market Scan — Part Labors', endpoint: 'market-scan-part-labors' },
+  { label: 'Market Scan — Categories', endpoint: 'market-scan-categories' },
+  { label: 'Market Scan — Sub Categories', endpoint: 'market-scan-sub-categories' },
+  { label: 'Market Scan — Super Categories', endpoint: 'market-scan-super-categories' },
+  { label: 'Market Scan — Mileage Adjustments', endpoint: 'market-scan-mileage-adjustments' },
+  { label: 'Market Scan — Vehicles', endpoint: 'market-scan-vehicles' },
+  { label: 'Market Scan — Rebates', endpoint: 'market-scan-rebates' },
+  { label: 'Market Scan — Rebates Vins', endpoint: 'market-scan-rebates-vins' },
+  { label: 'Market Scan — Rebate Descriptions', endpoint: 'market-scan-rebate-descriptions' },
+  { label: 'Market Scan — Taxes', endpoint: 'market-scan-taxes' },
+];
 
 const useStyles = makeStyles({
   header: {
@@ -137,6 +172,97 @@ const statusAppearanceMap: Record<string, 'success' | 'danger' | 'warning' | 'im
   [JobSchedulerStatusesEnum.RUNNING]: 'warning',
 };
 
+// ─── Trigger Job Modal ─────────────────────────────────
+
+interface TriggerJobModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const TriggerJobModal: React.FC<TriggerJobModalProps> = ({ isOpen, onClose }) => {
+  const styles = useStyles();
+  const [selectedEndpoint, setSelectedEndpoint] = useState('');
+  const [triggering, setTriggering] = useState(false);
+  const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedEndpoint('');
+      setError('');
+      setSuccessMsg('');
+    }
+  }, [isOpen]);
+
+  const handleTrigger = async () => {
+    if (!selectedEndpoint) return;
+    setTriggering(true);
+    setError('');
+    setSuccessMsg('');
+    try {
+      const res = await triggerJob(selectedEndpoint);
+      setSuccessMsg(res?.message || 'Job started successfully');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to trigger job');
+    } finally {
+      setTriggering(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <Dialog open onOpenChange={(_, data) => !data.open && onClose()}>
+      <DialogSurface className={styles.surface}>
+        <DialogBody>
+          <DialogTitle>Run Job Immediately</DialogTitle>
+          <DialogContent>
+            <div className={styles.form}>
+              {error && (
+                <MessageBar intent="error">
+                  <MessageBarBody>{error}</MessageBarBody>
+                </MessageBar>
+              )}
+              {successMsg && (
+                <MessageBar intent="success">
+                  <MessageBarBody>{successMsg}</MessageBarBody>
+                </MessageBar>
+              )}
+              <Field label="Select Job" required>
+                <Dropdown
+                  placeholder="Select a job to run"
+                  value={triggerableJobs.find((j) => j.endpoint === selectedEndpoint)?.label || undefined}
+                  selectedOptions={selectedEndpoint ? [selectedEndpoint] : []}
+                  onOptionSelect={(_, d) => setSelectedEndpoint(d.optionValue as string)}
+                >
+                  {triggerableJobs.map((job) => (
+                    <Option key={job.endpoint} value={job.endpoint}>
+                      {job.label}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
+            </div>
+          </DialogContent>
+          <DialogActions>
+            <Button appearance="secondary" onClick={onClose} disabled={triggering}>
+              Close
+            </Button>
+            <Button
+              appearance="primary"
+              icon={<PlayRegular />}
+              onClick={handleTrigger}
+              disabled={triggering || !selectedEndpoint}
+            >
+              {triggering ? <Spinner size="tiny" /> : 'Run'}
+            </Button>
+          </DialogActions>
+        </DialogBody>
+      </DialogSurface>
+    </Dialog>
+  );
+};
+
 // ─── Jobs Tab ───────────────────────────────────────────
 
 const JobsTab: React.FC = () => {
@@ -150,6 +276,7 @@ const JobsTab: React.FC = () => {
   const [filterJobType, setFilterJobType] = useState<string>('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [triggerModalOpen, setTriggerModalOpen] = useState(false);
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
@@ -183,6 +310,7 @@ const JobsTab: React.FC = () => {
 
   return (
     <>
+      <TriggerJobModal isOpen={triggerModalOpen} onClose={() => setTriggerModalOpen(false)} />
       <div className={styles.filters}>
         <Dropdown
           placeholder="Status"
@@ -226,6 +354,13 @@ const JobsTab: React.FC = () => {
           onClick={fetchJobs}
         >
           Refresh
+        </Button>
+        <Button
+          icon={<PlayRegular />}
+          appearance="primary"
+          onClick={() => setTriggerModalOpen(true)}
+        >
+          Run Job
         </Button>
       </div>
 

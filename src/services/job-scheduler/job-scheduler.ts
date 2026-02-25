@@ -42,3 +42,8 @@ export const updateConfig = async (
 export const deleteConfig = async (id: string): Promise<void> => {
   await api.delete(`/job-schedulers/configuration/${id}`);
 };
+
+export const triggerJob = async (endpoint: string): Promise<{ message: string; status: string }> => {
+  const { data } = await api.get(`/job-schedulers/${endpoint}`);
+  return data;
+};
