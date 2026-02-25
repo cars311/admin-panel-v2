@@ -160,11 +160,15 @@ const UsersPage: React.FC = () => {
   }, [selectedDays, selectedTab]);
 
   useEffect(() => {
+    // Reset to first page whenever filters or data change
     setActivityPageIndex(0);
     if (selectedCompany === 'all') {
       setDisplayedActivity(activityUsers);
     } else {
-      setDisplayedActivity(activityUsers.filter((u) => u.companyId === selectedCompany));
+      const selectedId = String(selectedCompany);
+      setDisplayedActivity(
+        activityUsers.filter((u) => String(u.companyId || '') === selectedId),
+      );
     }
   }, [selectedCompany, activityUsers]);
 
@@ -172,6 +176,13 @@ const UsersPage: React.FC = () => {
     setIsActivityLoading(true);
     const res = await getAllUsersActivity(selectedDays);
     setActivityUsers(res);
+    // Immediately reflect new data in the displayed list according to current company filter
+    if (selectedCompany === 'all') {
+      setDisplayedActivity(res);
+    } else {
+      const selectedId = String(selectedCompany);
+      setDisplayedActivity(res.filter((u) => String(u.companyId || '') === selectedId));
+    }
     setIsActivityLoading(false);
   };
 
@@ -292,7 +303,7 @@ const UsersPage: React.FC = () => {
           style={{ marginBottom: 16 }}
         >
           <Tab value="general">General</Tab>
-          {/*<Tab value="activity">Activity</Tab>*/}
+          <Tab value="activity">Activity</Tab>
         </TabList>
 
         {selectedTab === 'general' && (
