@@ -266,6 +266,22 @@ const JobsTab: React.FC = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [triggerModalOpen, setTriggerModalOpen] = useState(false);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+
+  const toggleRow = (id: string) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const metadataPreview = (metadata: Record<string, any> | undefined) => {
+    if (!metadata || Object.keys(metadata).length === 0) return '—';
+    const str = JSON.stringify(metadata);
+    return str.length > 80 ? str.slice(0, 80) + '…' : str;
+  };
 
   // Draft filters (what user is editing in the UI)
   const [draftFilters, setDraftFilters] = useState(defaultJobFilters);
@@ -405,29 +421,48 @@ const JobsTab: React.FC = () => {
                   <th className={styles.th}>Cron</th>
                   <th className={styles.th}>Created At</th>
                   <th className={styles.th}>Ended At</th>
+                  <th className={styles.th}>Metadata</th>
                   <th className={styles.th}>Error</th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr key={job._id} className={styles.tr}>
-                    <td className={styles.td}>
-                      <Badge
-                        appearance="filled"
-                        color={statusAppearanceMap[job.status] || 'important'}
-                      >
-                        {job.status}
-                      </Badge>
-                    </td>
-                    <td className={styles.td}>{job.jobType}</td>
-                    <td className={styles.td}>{job.name}</td>
-                    <td className={styles.td}>{job.cron}</td>
-                    <td className={styles.td}>{formatShortDateTime(job.createdAt)}</td>
-                    <td className={styles.td}>{job.endedAt ? formatShortDateTime(job.endedAt) : '—'}</td>
-                    <td className={styles.td} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {job.error || '—'}
-                    </td>
-                  </tr>
+                  <React.Fragment key={job._id}>
+                    <tr
+                      className={styles.tr}
+                      style={{ cursor: job.metadata && Object.keys(job.metadata).length > 0 ? 'pointer' : undefined }}
+                      onClick={() => job.metadata && Object.keys(job.metadata).length > 0 && toggleRow(job._id)}
+                    >
+                      <td className={styles.td}>
+                        <Badge
+                          appearance="filled"
+                          color={statusAppearanceMap[job.status] || 'important'}
+                        >
+                          {job.status}
+                        </Badge>
+                      </td>
+                      <td className={styles.td}>{job.jobType}</td>
+                      <td className={styles.td}>{job.name}</td>
+                      <td className={styles.td}>{job.cron}</td>
+                      <td className={styles.td}>{formatShortDateTime(job.createdAt)}</td>
+                      <td className={styles.td}>{job.endedAt ? formatShortDateTime(job.endedAt) : '—'}</td>
+                      <td className={styles.td} style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace', fontSize: 12, color: tokens.colorNeutralForeground3 }}>
+                        {metadataPreview(job.metadata)}
+                      </td>
+                      <td className={styles.td} style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {job.error || '—'}
+                      </td>
+                    </tr>
+                    {expandedRows.has(job._id) && (
+                      <tr>
+                        <td colSpan={8} style={{ padding: '0 12px 12px 12px', background: tokens.colorNeutralBackground2 }}>
+                          <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', color: tokens.colorNeutralForeground1 }}>
+                            {JSON.stringify(job.metadata, null, 2)}
+                          </pre>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>

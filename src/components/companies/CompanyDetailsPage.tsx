@@ -302,6 +302,7 @@ const CompanyDetailsPage: React.FC = () => {
       name: company.name || '',
       nameOnDisclosure: company.nameOnDisclosure || '',
       type: company.type || '',
+      licensed_seats: company.licensed_seats != null ? String(company.licensed_seats) : '',
       phone: company.phone || '',
       billingName: company.billingName || '',
       billingEmail: company.billingEmail || '',
@@ -321,6 +322,26 @@ const CompanyDetailsPage: React.FC = () => {
       soldToState: company.soldToState || '',
       soldToZipCode: company.soldToZipCode || '',
       soldToCountry: company.soldToCountry || '',
+      // dealer data
+      dealerName: company.dealerData?.dealerName || '',
+      dealerLegalName: company.dealerData?.dealerLegalName || '',
+      dealerId: company.dealerData?.dealerId || '',
+      dealerDefaultMake: company.dealerData?.defaultMake || '',
+      dealerState: company.dealerData?.state || '',
+      dealerRegion: company.dealerData?.region || '',
+      dealerRegionCode: company.dealerData?.regionCode || '',
+      dealerArea: company.dealerData?.area || '',
+      dealerAreaCode: company.dealerData?.areaCode || '',
+      dealerCounty: company.dealerData?.county || '',
+      dealerCity: company.dealerData?.city || '',
+      dealerZip: company.dealerData?.zip || '',
+      dealerAddress: company.dealerData?.address || '',
+      dealerPhone: company.dealerData?.phone || '',
+      // broker data
+      brokerName: company.brokerData?.brokerName || '',
+      brokerLegalName: company.brokerData?.brokerLegalName || '',
+      brokerId: company.brokerData?.brokerId || '',
+      brokerDefaultMake: company.brokerData?.defaultMake || '',
     });
     setIsEditing(true);
     setErrorMsg('');
@@ -336,7 +357,60 @@ const CompanyDetailsPage: React.FC = () => {
     setEditSaving(true);
     setErrorMsg('');
     try {
-      await updateCompany(id!, editData);
+      const payload: Record<string, any> = {
+        name: editData.name,
+        nameOnDisclosure: editData.nameOnDisclosure,
+        type: editData.type,
+        phone: editData.phone,
+        billingName: editData.billingName,
+        billingEmail: editData.billingEmail,
+        billingTaxId: editData.billingTaxId,
+        billingAddress: editData.billingAddress,
+        billingAddressTwo: editData.billingAddressTwo,
+        billingCity: editData.billingCity,
+        billingState: editData.billingState,
+        billingZipCode: editData.billingZipCode,
+        billingCountry: editData.billingCountry,
+        soldToName: editData.soldToName,
+        soldToEmail: editData.soldToEmail,
+        soldToTaxId: editData.soldToTaxId,
+        soldToAddress: editData.soldToAddress,
+        soldToAddressTwo: editData.soldToAddressTwo,
+        soldToCity: editData.soldToCity,
+        soldToState: editData.soldToState,
+        soldToZipCode: editData.soldToZipCode,
+        soldToCountry: editData.soldToCountry,
+      };
+      if (editData.licensed_seats !== '') {
+        payload.licensed_seats = Number(editData.licensed_seats);
+      }
+      const type = editData.type;
+      if (type === 'dealer' || type === 'dealer_used') {
+        payload.dealerData = {
+          dealerName: editData.dealerName,
+          dealerLegalName: editData.dealerLegalName,
+          dealerId: editData.dealerId,
+          defaultMake: editData.dealerDefaultMake,
+          state: editData.dealerState,
+          region: editData.dealerRegion,
+          regionCode: editData.dealerRegionCode,
+          area: editData.dealerArea,
+          areaCode: editData.dealerAreaCode,
+          county: editData.dealerCounty,
+          city: editData.dealerCity,
+          zip: editData.dealerZip,
+          address: editData.dealerAddress,
+          phone: editData.dealerPhone,
+        };
+      } else if (type === 'broker') {
+        payload.brokerData = {
+          brokerName: editData.brokerName,
+          brokerLegalName: editData.brokerLegalName,
+          brokerId: editData.brokerId,
+          defaultMake: editData.brokerDefaultMake,
+        };
+      }
+      await updateCompany(id!, payload);
       setIsEditing(false);
       setSuccessMsg('Company updated successfully.');
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -501,7 +575,7 @@ const CompanyDetailsPage: React.FC = () => {
                         ))}
                       </Dropdown>
                     </Field>
-                    <InfoField label="Licensed Seats" value={company.licensed_seats} />
+                    <EditableField label="Licensed Seats" value={editData.licensed_seats} onChange={(v) => updateField('licensed_seats', v)} type="number" />
                     <EditableField label="Phone" value={editData.phone} onChange={(v) => updateField('phone', v)} />
                     <InfoField label="Created At" value={company.createdAt ? formatShortDateTime(company.createdAt) : undefined} />
                   </>
@@ -586,44 +660,84 @@ const CompanyDetailsPage: React.FC = () => {
               </div>
             </Card>
 
-            {/* Dealer / Broker Data (read-only) */}
-            {company.dealerData && (
-              <Card className={styles.card}>
-                <div className={styles.sectionTitle}>
-                  <Title3>Dealer Data</Title3>
-                </div>
-                <div className={styles.grid}>
-                  <InfoField label="Dealer Name" value={company.dealerData.dealerName} />
-                  <InfoField label="Dealer Legal Name" value={company.dealerData.dealerLegalName} />
-                  <InfoField label="Dealer ID" value={company.dealerData.dealerId} />
-                  <InfoField label="Default Make" value={company.dealerData.defaultMake} />
-                  <InfoField label="State" value={company.dealerData.state} />
-                  <InfoField label="Region" value={company.dealerData.region} />
-                  <InfoField label="Region Code" value={company.dealerData.regionCode} />
-                  <InfoField label="Area" value={company.dealerData.area} />
-                  <InfoField label="Area Code" value={company.dealerData.areaCode} />
-                  <InfoField label="County" value={company.dealerData.county} />
-                  <InfoField label="City" value={company.dealerData.city} />
-                  <InfoField label="Zip" value={company.dealerData.zip} />
-                  <InfoField label="Address" value={company.dealerData.address} />
-                  <InfoField label="Phone" value={company.dealerData.phone} />
-                </div>
-              </Card>
-            )}
-
-            {company.brokerData && (
-              <Card className={styles.card}>
-                <div className={styles.sectionTitle}>
-                  <Title3>Broker Data</Title3>
-                </div>
-                <div className={styles.grid}>
-                  <InfoField label="Broker Name" value={company.brokerData.brokerName} />
-                  <InfoField label="Broker Legal Name" value={company.brokerData.brokerLegalName} />
-                  <InfoField label="Broker ID" value={company.brokerData.brokerId} />
-                  <InfoField label="Default Make" value={company.brokerData.defaultMake} />
-                </div>
-              </Card>
-            )}
+            {/* Dealer Data */}
+            {(() => {
+              const displayType = isEditing ? editData.type : company.type;
+              const isDealer = displayType === 'dealer' || displayType === 'dealer_used';
+              const isBroker = displayType === 'broker';
+              return (
+                <>
+                  {isDealer && (
+                    <Card className={styles.card}>
+                      <div className={styles.sectionTitle}>
+                        <Title3>Dealer Data</Title3>
+                      </div>
+                      <div className={styles.grid}>
+                        {isEditing ? (
+                          <>
+                            <EditableField label="Dealer Name" value={editData.dealerName} onChange={(v) => updateField('dealerName', v)} />
+                            <EditableField label="Dealer Legal Name" value={editData.dealerLegalName} onChange={(v) => updateField('dealerLegalName', v)} />
+                            <EditableField label="Dealer ID" value={editData.dealerId} onChange={(v) => updateField('dealerId', v)} />
+                            <EditableField label="Default Make" value={editData.dealerDefaultMake} onChange={(v) => updateField('dealerDefaultMake', v)} />
+                            <EditableField label="State" value={editData.dealerState} onChange={(v) => updateField('dealerState', v)} />
+                            <EditableField label="Region" value={editData.dealerRegion} onChange={(v) => updateField('dealerRegion', v)} />
+                            <EditableField label="Region Code" value={editData.dealerRegionCode} onChange={(v) => updateField('dealerRegionCode', v)} />
+                            <EditableField label="Area" value={editData.dealerArea} onChange={(v) => updateField('dealerArea', v)} />
+                            <EditableField label="Area Code" value={editData.dealerAreaCode} onChange={(v) => updateField('dealerAreaCode', v)} />
+                            <EditableField label="County" value={editData.dealerCounty} onChange={(v) => updateField('dealerCounty', v)} />
+                            <EditableField label="City" value={editData.dealerCity} onChange={(v) => updateField('dealerCity', v)} />
+                            <EditableField label="Zip" value={editData.dealerZip} onChange={(v) => updateField('dealerZip', v)} />
+                            <EditableField label="Address" value={editData.dealerAddress} onChange={(v) => updateField('dealerAddress', v)} />
+                            <EditableField label="Phone" value={editData.dealerPhone} onChange={(v) => updateField('dealerPhone', v)} />
+                          </>
+                        ) : (
+                          <>
+                            <InfoField label="Dealer Name" value={company.dealerData?.dealerName} />
+                            <InfoField label="Dealer Legal Name" value={company.dealerData?.dealerLegalName} />
+                            <InfoField label="Dealer ID" value={company.dealerData?.dealerId} />
+                            <InfoField label="Default Make" value={company.dealerData?.defaultMake} />
+                            <InfoField label="State" value={company.dealerData?.state} />
+                            <InfoField label="Region" value={company.dealerData?.region} />
+                            <InfoField label="Region Code" value={company.dealerData?.regionCode} />
+                            <InfoField label="Area" value={company.dealerData?.area} />
+                            <InfoField label="Area Code" value={company.dealerData?.areaCode} />
+                            <InfoField label="County" value={company.dealerData?.county} />
+                            <InfoField label="City" value={company.dealerData?.city} />
+                            <InfoField label="Zip" value={company.dealerData?.zip} />
+                            <InfoField label="Address" value={company.dealerData?.address} />
+                            <InfoField label="Phone" value={company.dealerData?.phone} />
+                          </>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+                  {isBroker && (
+                    <Card className={styles.card}>
+                      <div className={styles.sectionTitle}>
+                        <Title3>Broker Data</Title3>
+                      </div>
+                      <div className={styles.grid}>
+                        {isEditing ? (
+                          <>
+                            <EditableField label="Broker Name" value={editData.brokerName} onChange={(v) => updateField('brokerName', v)} />
+                            <EditableField label="Broker Legal Name" value={editData.brokerLegalName} onChange={(v) => updateField('brokerLegalName', v)} />
+                            <EditableField label="Broker ID" value={editData.brokerId} onChange={(v) => updateField('brokerId', v)} />
+                            <EditableField label="Default Make" value={editData.brokerDefaultMake} onChange={(v) => updateField('brokerDefaultMake', v)} />
+                          </>
+                        ) : (
+                          <>
+                            <InfoField label="Broker Name" value={company.brokerData?.brokerName} />
+                            <InfoField label="Broker Legal Name" value={company.brokerData?.brokerLegalName} />
+                            <InfoField label="Broker ID" value={company.brokerData?.brokerId} />
+                            <InfoField label="Default Make" value={company.brokerData?.defaultMake} />
+                          </>
+                        )}
+                      </div>
+                    </Card>
+                  )}
+                </>
+              );
+            })()}
 
             {/* Email Recipients */}
             {company.emailRecipients?.length > 0 && (
