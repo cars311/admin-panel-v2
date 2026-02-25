@@ -137,7 +137,7 @@ const CompaniesPage: React.FC = () => {
       case CompanyStatus.DEACTIVATED:
         return <Badge appearance="tint" color="danger">{status}</Badge>;
       default:
-        return <Badge appearance="tint">{status}</Badge>;
+        return <Badge appearance="tint">Status is Missing</Badge>;
     }
   };
 

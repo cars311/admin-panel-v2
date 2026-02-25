@@ -292,7 +292,7 @@ const UsersPage: React.FC = () => {
           style={{ marginBottom: 16 }}
         >
           <Tab value="general">General</Tab>
-          <Tab value="activity">Activity</Tab>
+          {/*<Tab value="activity">Activity</Tab>*/}
         </TabList>
 
         {selectedTab === 'general' && (
