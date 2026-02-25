@@ -489,7 +489,7 @@ const UsersPage: React.FC = () => {
                         <th className={styles.th}>Email</th>
                         <th className={styles.th}>Company</th>
                         <th className={styles.th}>Status</th>
-                        <th className={styles.th}>Deactivation</th>
+                        <th className={styles.th}>Deactivation Date</th>
                         <th className={styles.th}>Billing Start</th>
                         <th className={styles.th}>Last Login</th>
                         <th className={styles.th}>Activity Date</th>
