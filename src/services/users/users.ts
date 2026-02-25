@@ -48,6 +48,7 @@ export const getAllUsersActivity = async (
           _id: user._id,
           companyId: user.companyId?._id,
           companyName: user.companyId?.name || 'None',
+          companyType: (user.companyId as any)?.type || '',
           billingStartAt: user.billingStartAt
             ? formatShortDateTime(user.billingStartAt)
             : 'None',
@@ -169,5 +170,41 @@ export const deactivateOneCompany = async (
     return response.data;
   } catch (e: any) {
     return false;
+  }
+};
+
+export const updateCompany = async (
+  companyId: string,
+  data: Record<string, any>,
+): Promise<boolean> => {
+  try {
+    await api.patch(`companies/${companyId}`, data);
+    return true;
+  } catch (e: any) {
+    throw e;
+  }
+};
+
+export const updateUser = async (
+  userId: string,
+  data: { firstName: string; lastName: string; phone: string; email?: string; roles: string[] },
+): Promise<boolean> => {
+  try {
+    await api.patch(`users/${userId}`, data);
+    return true;
+  } catch (e: any) {
+    throw e;
+  }
+};
+
+export const createCompanyUserByAdmin = async (
+  companyId: string,
+  data: { email: string; phone: string; firstName: string; lastName: string; roles: string[] },
+): Promise<any> => {
+  try {
+    const response = await api.post(`companies/${companyId}/users`, data);
+    return response.data;
+  } catch (e: any) {
+    throw e;
   }
 };

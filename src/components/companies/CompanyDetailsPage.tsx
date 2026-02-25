@@ -11,7 +11,10 @@ import {
   DialogSurface,
   DialogTitle,
   DialogTrigger,
+  Dropdown,
   Field,
+  Input,
+  Option,
   Spinner,
   Tab,
   TabList,
@@ -29,12 +32,16 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import {
+  AddRegular,
   ArrowLeft24Regular,
   CheckmarkCircle24Regular,
   Dismiss24Regular,
+  EditRegular,
   Person24Regular,
   Building24Regular,
   PeopleCommunity24Regular,
+  SaveRegular,
+  DismissRegular,
 } from '@fluentui/react-icons';
 import type { CompanyDetails, CompanyUser } from '../../types/user';
 import { CompanyStatus } from '../../types/user';
@@ -45,8 +52,14 @@ import {
   deactivateOneCompany,
   activateUserFromCompany,
   deactivateUserFromCompany,
+  updateCompany,
 } from '../../services/users/users';
 import { formatShortDateTime } from '../../utils/formatDate';
+import { convertUserRole } from '../../utils/convertUserRole';
+import EditUserModal from '../common/EditUserModal';
+import CreateUserModal from '../common/CreateUserModal';
+
+const allCompanyTypes = ['broker', 'dealer', 'dealer_used'];
 
 const useStyles = makeStyles({
   page: {
@@ -75,6 +88,17 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: '8px',
     marginBottom: '16px',
+  },
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '16px',
+  },
+  sectionTitleGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
   },
   grid: {
     display: 'grid',
@@ -113,6 +137,10 @@ const useStyles = makeStyles({
     justifyContent: 'center',
     padding: '48px',
   },
+  editActions: {
+    display: 'flex',
+    gap: '8px',
+  },
 });
 
 const statusColor = (status: string) => {
@@ -132,6 +160,17 @@ const InfoField: React.FC<{ label: string; value?: string | number | null }> = (
   );
 };
 
+const EditableField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  type?: string;
+}> = ({ label, value, onChange, type }) => (
+  <Field label={label}>
+    <Input value={value} onChange={(_, d) => onChange(d.value)} type={type} />
+  </Field>
+);
+
 const CompanyDetailsPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -149,6 +188,15 @@ const CompanyDetailsPage: React.FC = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState<Record<string, any>>({});
+  const [editSaving, setEditSaving] = useState(false);
+
+  // User edit/create modals
+  const [editingUser, setEditingUser] = useState<CompanyUser | null>(null);
+  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -247,6 +295,63 @@ const CompanyDetailsPage: React.FC = () => {
     });
   };
 
+  // Edit mode helpers
+  const startEditing = () => {
+    if (!company) return;
+    setEditData({
+      name: company.name || '',
+      nameOnDisclosure: company.nameOnDisclosure || '',
+      type: company.type || '',
+      phone: company.phone || '',
+      billingName: company.billingName || '',
+      billingEmail: company.billingEmail || '',
+      billingTaxId: company.billingTaxId || '',
+      billingAddress: company.billingAddress || '',
+      billingAddressTwo: company.billingAddressTwo || '',
+      billingCity: company.billingCity || '',
+      billingState: company.billingState || '',
+      billingZipCode: company.billingZipCode || '',
+      billingCountry: company.billingCountry || '',
+      soldToName: company.soldToName || '',
+      soldToEmail: company.soldToEmail || '',
+      soldToTaxId: company.soldToTaxId || '',
+      soldToAddress: company.soldToAddress || '',
+      soldToAddressTwo: company.soldToAddressTwo || '',
+      soldToCity: company.soldToCity || '',
+      soldToState: company.soldToState || '',
+      soldToZipCode: company.soldToZipCode || '',
+      soldToCountry: company.soldToCountry || '',
+    });
+    setIsEditing(true);
+    setErrorMsg('');
+  };
+
+  const discardEditing = () => {
+    setIsEditing(false);
+    setEditData({});
+    setErrorMsg('');
+  };
+
+  const saveEditing = async () => {
+    setEditSaving(true);
+    setErrorMsg('');
+    try {
+      await updateCompany(id!, editData);
+      setIsEditing(false);
+      setSuccessMsg('Company updated successfully.');
+      setTimeout(() => setSuccessMsg(''), 4000);
+      await loadCompany();
+    } catch (err: any) {
+      setErrorMsg(err?.response?.data?.message || 'Failed to update company.');
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const updateField = (key: string, value: string) => {
+    setEditData((prev) => ({ ...prev, [key]: value }));
+  };
+
   if (isLoading) {
     return (
       <div className={styles.spinnerWrapper}>
@@ -328,7 +433,39 @@ const CompanyDetailsPage: React.FC = () => {
       <div className={styles.tabContent}>
         {activeTab === 'info' && (
           <>
-            {/* Owner Info */}
+            {/* Edit / Save / Discard buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+              {!isEditing ? (
+                <Button
+                  appearance="primary"
+                  icon={<EditRegular />}
+                  onClick={startEditing}
+                >
+                  Edit Company
+                </Button>
+              ) : (
+                <div className={styles.editActions}>
+                  <Button
+                    appearance="secondary"
+                    icon={<DismissRegular />}
+                    onClick={discardEditing}
+                    disabled={editSaving}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    appearance="primary"
+                    icon={<SaveRegular />}
+                    onClick={saveEditing}
+                    disabled={editSaving}
+                  >
+                    {editSaving ? <Spinner size="tiny" /> : 'Save Changes'}
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Owner Info (read-only always) */}
             <Card className={styles.card}>
               <div className={styles.sectionTitle}>
                 <Person24Regular />
@@ -349,12 +486,35 @@ const CompanyDetailsPage: React.FC = () => {
                 <Title3>Company Information</Title3>
               </div>
               <div className={styles.grid}>
-                <InfoField label="Company Name" value={company.name} />
-                <InfoField label="Name on Disclosure" value={company.nameOnDisclosure} />
-                <InfoField label="Type" value={company.type} />
-                <InfoField label="Licensed Seats" value={company.licensed_seats} />
-                <InfoField label="Phone" value={company.phone} />
-                <InfoField label="Created At" value={company.createdAt ? formatShortDateTime(company.createdAt) : undefined} />
+                {isEditing ? (
+                  <>
+                    <EditableField label="Company Name" value={editData.name} onChange={(v) => updateField('name', v)} />
+                    <EditableField label="Name on Disclosure" value={editData.nameOnDisclosure} onChange={(v) => updateField('nameOnDisclosure', v)} />
+                    <Field label="Type">
+                      <Dropdown
+                        value={editData.type || ''}
+                        selectedOptions={editData.type ? [editData.type] : []}
+                        onOptionSelect={(_, d) => updateField('type', d.optionValue as string)}
+                      >
+                        {allCompanyTypes.map((t) => (
+                          <Option key={t} value={t}>{t}</Option>
+                        ))}
+                      </Dropdown>
+                    </Field>
+                    <InfoField label="Licensed Seats" value={company.licensed_seats} />
+                    <EditableField label="Phone" value={editData.phone} onChange={(v) => updateField('phone', v)} />
+                    <InfoField label="Created At" value={company.createdAt ? formatShortDateTime(company.createdAt) : undefined} />
+                  </>
+                ) : (
+                  <>
+                    <InfoField label="Company Name" value={company.name} />
+                    <InfoField label="Name on Disclosure" value={company.nameOnDisclosure} />
+                    <InfoField label="Type" value={company.type} />
+                    <InfoField label="Licensed Seats" value={company.licensed_seats} />
+                    <InfoField label="Phone" value={company.phone} />
+                    <InfoField label="Created At" value={company.createdAt ? formatShortDateTime(company.createdAt) : undefined} />
+                  </>
+                )}
               </div>
             </Card>
 
@@ -364,39 +524,69 @@ const CompanyDetailsPage: React.FC = () => {
                 <Title3>Billing Information</Title3>
               </div>
               <div className={styles.grid}>
-                <InfoField label="Billing Name" value={company.billingName} />
-                <InfoField label="Billing Email" value={company.billingEmail} />
-                <InfoField label="Billing Tax ID" value={company.billingTaxId} />
-                <InfoField label="Billing Address" value={company.billingAddress} />
-                <InfoField label="Billing Address 2" value={company.billingAddressTwo} />
-                <InfoField label="Billing City" value={company.billingCity} />
-                <InfoField label="Billing State" value={company.billingState} />
-                <InfoField label="Billing Zip Code" value={company.billingZipCode} />
-                <InfoField label="Billing Country" value={company.billingCountry} />
+                {isEditing ? (
+                  <>
+                    <EditableField label="Billing Name" value={editData.billingName} onChange={(v) => updateField('billingName', v)} />
+                    <EditableField label="Billing Email" value={editData.billingEmail} onChange={(v) => updateField('billingEmail', v)} type="email" />
+                    <EditableField label="Billing Tax ID" value={editData.billingTaxId} onChange={(v) => updateField('billingTaxId', v)} />
+                    <EditableField label="Billing Address" value={editData.billingAddress} onChange={(v) => updateField('billingAddress', v)} />
+                    <EditableField label="Billing Address 2" value={editData.billingAddressTwo} onChange={(v) => updateField('billingAddressTwo', v)} />
+                    <EditableField label="Billing City" value={editData.billingCity} onChange={(v) => updateField('billingCity', v)} />
+                    <EditableField label="Billing State" value={editData.billingState} onChange={(v) => updateField('billingState', v)} />
+                    <EditableField label="Billing Zip Code" value={editData.billingZipCode} onChange={(v) => updateField('billingZipCode', v)} />
+                    <EditableField label="Billing Country" value={editData.billingCountry} onChange={(v) => updateField('billingCountry', v)} />
+                  </>
+                ) : (
+                  <>
+                    <InfoField label="Billing Name" value={company.billingName} />
+                    <InfoField label="Billing Email" value={company.billingEmail} />
+                    <InfoField label="Billing Tax ID" value={company.billingTaxId} />
+                    <InfoField label="Billing Address" value={company.billingAddress} />
+                    <InfoField label="Billing Address 2" value={company.billingAddressTwo} />
+                    <InfoField label="Billing City" value={company.billingCity} />
+                    <InfoField label="Billing State" value={company.billingState} />
+                    <InfoField label="Billing Zip Code" value={company.billingZipCode} />
+                    <InfoField label="Billing Country" value={company.billingCountry} />
+                  </>
+                )}
               </div>
             </Card>
 
             {/* Sold To Info */}
-            {(company.soldToName || company.soldToAddress) && (
-              <Card className={styles.card}>
-                <div className={styles.sectionTitle}>
-                  <Title3>Sold To Information</Title3>
-                </div>
-                <div className={styles.grid}>
-                  <InfoField label="Sold To Name" value={company.soldToName} />
-                  <InfoField label="Sold To Email" value={company.soldToEmail} />
-                  <InfoField label="Sold To Tax ID" value={company.soldToTaxId} />
-                  <InfoField label="Sold To Address" value={company.soldToAddress} />
-                  <InfoField label="Sold To Address 2" value={company.soldToAddressTwo} />
-                  <InfoField label="Sold To City" value={company.soldToCity} />
-                  <InfoField label="Sold To State" value={company.soldToState} />
-                  <InfoField label="Sold To Zip Code" value={company.soldToZipCode} />
-                  <InfoField label="Sold To Country" value={company.soldToCountry} />
-                </div>
-              </Card>
-            )}
+            <Card className={styles.card}>
+              <div className={styles.sectionTitle}>
+                <Title3>Sold To Information</Title3>
+              </div>
+              <div className={styles.grid}>
+                {isEditing ? (
+                  <>
+                    <EditableField label="Sold To Name" value={editData.soldToName} onChange={(v) => updateField('soldToName', v)} />
+                    <EditableField label="Sold To Email" value={editData.soldToEmail} onChange={(v) => updateField('soldToEmail', v)} type="email" />
+                    <EditableField label="Sold To Tax ID" value={editData.soldToTaxId} onChange={(v) => updateField('soldToTaxId', v)} />
+                    <EditableField label="Sold To Address" value={editData.soldToAddress} onChange={(v) => updateField('soldToAddress', v)} />
+                    <EditableField label="Sold To Address 2" value={editData.soldToAddressTwo} onChange={(v) => updateField('soldToAddressTwo', v)} />
+                    <EditableField label="Sold To City" value={editData.soldToCity} onChange={(v) => updateField('soldToCity', v)} />
+                    <EditableField label="Sold To State" value={editData.soldToState} onChange={(v) => updateField('soldToState', v)} />
+                    <EditableField label="Sold To Zip Code" value={editData.soldToZipCode} onChange={(v) => updateField('soldToZipCode', v)} />
+                    <EditableField label="Sold To Country" value={editData.soldToCountry} onChange={(v) => updateField('soldToCountry', v)} />
+                  </>
+                ) : (
+                  <>
+                    <InfoField label="Sold To Name" value={company.soldToName} />
+                    <InfoField label="Sold To Email" value={company.soldToEmail} />
+                    <InfoField label="Sold To Tax ID" value={company.soldToTaxId} />
+                    <InfoField label="Sold To Address" value={company.soldToAddress} />
+                    <InfoField label="Sold To Address 2" value={company.soldToAddressTwo} />
+                    <InfoField label="Sold To City" value={company.soldToCity} />
+                    <InfoField label="Sold To State" value={company.soldToState} />
+                    <InfoField label="Sold To Zip Code" value={company.soldToZipCode} />
+                    <InfoField label="Sold To Country" value={company.soldToCountry} />
+                  </>
+                )}
+              </div>
+            </Card>
 
-            {/* Dealer / Broker Data */}
+            {/* Dealer / Broker Data (read-only) */}
             {company.dealerData && (
               <Card className={styles.card}>
                 <div className={styles.sectionTitle}>
@@ -466,9 +656,18 @@ const CompanyDetailsPage: React.FC = () => {
 
         {activeTab === 'users' && (
           <Card className={styles.card}>
-            <div className={styles.sectionTitle}>
-              <PeopleCommunity24Regular />
-              <Title3>Company Users</Title3>
+            <div className={styles.sectionHeader}>
+              <div className={styles.sectionTitleGroup}>
+                <PeopleCommunity24Regular />
+                <Title3>Company Users</Title3>
+              </div>
+              <Button
+                appearance="primary"
+                icon={<AddRegular />}
+                onClick={() => setIsCreateUserOpen(true)}
+              >
+                Add User
+              </Button>
             </div>
             {isUsersLoading ? (
               <div className={styles.spinnerWrapper}>
@@ -502,7 +701,11 @@ const CompanyDetailsPage: React.FC = () => {
                             <TableCell>{u.firstName}</TableCell>
                             <TableCell>{u.lastName}</TableCell>
                             <TableCell>{u.email}</TableCell>
-                            <TableCell>{u.roles?.join(', ') || '—'}</TableCell>
+                            <TableCell>
+                              {u.roles?.length
+                                ? u.roles.map((r) => convertUserRole(r)).join(', ')
+                                : '—'}
+                            </TableCell>
                             <TableCell>
                               <Badge
                                 color={
@@ -520,29 +723,35 @@ const CompanyDetailsPage: React.FC = () => {
                               {u.lastLogin ? formatShortDateTime(u.lastLogin) : '—'}
                             </TableCell>
                             <TableCell>
-                              {u.status === 'deactivated' ? (
-                                <Tooltip content="Activate user" relationship="label">
-                                  <Button
-                                    size="small"
-                                    appearance="primary"
-                                    icon={<CheckmarkCircle24Regular />}
-                                    onClick={() => handleActivateUser(u._id)}
-                                  >
-                                    Activate
-                                  </Button>
-                                </Tooltip>
-                              ) : (
-                                <Tooltip content="Deactivate user" relationship="label">
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <Tooltip content="Edit user" relationship="label">
                                   <Button
                                     size="small"
                                     appearance="subtle"
-                                    icon={<Dismiss24Regular />}
-                                    onClick={() => handleDeactivateUser(u._id)}
-                                  >
-                                    Deactivate
-                                  </Button>
+                                    icon={<EditRegular />}
+                                    onClick={() => setEditingUser(u)}
+                                  />
                                 </Tooltip>
-                              )}
+                                {u.status === 'deactivated' ? (
+                                  <Tooltip content="Activate user" relationship="label">
+                                    <Button
+                                      size="small"
+                                      appearance="primary"
+                                      icon={<CheckmarkCircle24Regular />}
+                                      onClick={() => handleActivateUser(u._id)}
+                                    />
+                                  </Tooltip>
+                                ) : (
+                                  <Tooltip content="Deactivate user" relationship="label">
+                                    <Button
+                                      size="small"
+                                      appearance="subtle"
+                                      icon={<Dismiss24Regular />}
+                                      onClick={() => handleDeactivateUser(u._id)}
+                                    />
+                                  </Tooltip>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
@@ -601,6 +810,32 @@ const CompanyDetailsPage: React.FC = () => {
           </DialogBody>
         </DialogSurface>
       </Dialog>
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={!!editingUser}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => {
+          setEditingUser(null);
+          setSuccessMsg('User updated successfully.');
+          setTimeout(() => setSuccessMsg(''), 4000);
+          loadUsers();
+        }}
+      />
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={isCreateUserOpen}
+        companyId={id!}
+        onClose={() => setIsCreateUserOpen(false)}
+        onCreated={() => {
+          setIsCreateUserOpen(false);
+          setSuccessMsg('User created successfully.');
+          setTimeout(() => setSuccessMsg(''), 4000);
+          loadUsers();
+        }}
+      />
     </div>
   );
 };

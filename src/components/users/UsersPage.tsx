@@ -19,6 +19,7 @@ import {
   ArrowDownloadRegular,
   CheckmarkCircleRegular,
   DeleteRegular,
+  EditRegular,
 } from '@fluentui/react-icons';
 import { sortBy } from 'lodash';
 import { useAuth } from '../../context/AuthContext';
@@ -34,6 +35,7 @@ import { UserRole } from '../../types/user';
 import { convertUserRole } from '../../utils/convertUserRole';
 import { formatShortDateTime, capitalize } from '../../utils/formatDate';
 import ConfirmDialog from '../common/ConfirmDialog';
+import EditUserModal from '../common/EditUserModal';
 import FilterBar from '../common/FilterBar';
 import TablePagination from '../common/TablePagination';
 
@@ -116,6 +118,7 @@ const UsersPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userToActivate, setUserToActivate] = useState('');
   const [userToDeactivate, setUserToDeactivate] = useState('');
+  const [editingUser, setEditingUser] = useState<CompanyUser | null>(null);
 
   const [draftGeneralFilters, setDraftGeneralFilters] = useState(defaultGeneralFilters);
   const [appliedGeneralFilters, setAppliedGeneralFilters] = useState(defaultGeneralFilters);
@@ -203,7 +206,7 @@ const UsersPage: React.FC = () => {
       );
     }
     if (appliedActivityFilters.companyType) {
-      filtered = filtered.filter((u) => (u as any).companyType === appliedActivityFilters.companyType);
+      filtered = filtered.filter((u) => u.companyType === appliedActivityFilters.companyType);
     }
     setDisplayedActivity(filtered);
   }, [appliedActivityFilters.company, appliedActivityFilters.search, appliedActivityFilters.companyType, activityUsers]);
@@ -409,6 +412,7 @@ const UsersPage: React.FC = () => {
                       <thead>
                         <tr>
                           <th className={styles.th}>Company</th>
+                          <th className={styles.th}>Company Type</th>
                           <th className={styles.th}>First Name</th>
                           <th className={styles.th}>Last Name</th>
                           <th className={styles.th}>Email</th>
@@ -424,7 +428,7 @@ const UsersPage: React.FC = () => {
                       <tbody>
                         {users.length === 0 ? (
                           <tr>
-                            <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
+                            <td className={styles.td} colSpan={12} style={{ textAlign: 'center' }}>
                               <Body1>No users found</Body1>
                             </td>
                           </tr>
@@ -432,6 +436,7 @@ const UsersPage: React.FC = () => {
                           users.map((u) => (
                             <tr key={u._id} className={styles.tr}>
                               <td className={styles.td}>{(u as any).companyName || '—'}</td>
+                              <td className={styles.td}>{(u as any).companyType || '—'}</td>
                               <td className={styles.td}>{u.firstName}</td>
                               <td className={styles.td}>{u.lastName}</td>
                               <td className={styles.td}>{u.email}</td>
@@ -455,6 +460,13 @@ const UsersPage: React.FC = () => {
                               <td className={styles.td}>{getStatusBadge(u.status)}</td>
                               <td className={styles.td}>
                                 <div className={styles.actions}>
+                                  <Button
+                                    appearance="subtle"
+                                    icon={<EditRegular />}
+                                    size="small"
+                                    title="Edit"
+                                    onClick={() => setEditingUser(u)}
+                                  />
                                   {u.status === 'deactivated' && u.email !== currentUser.email && (
                                     <Button
                                       appearance="subtle"
@@ -589,6 +601,7 @@ const UsersPage: React.FC = () => {
                           <th className={styles.th}>Last Name</th>
                           <th className={styles.th}>Email</th>
                           <th className={styles.th}>Company</th>
+                          <th className={styles.th}>Company Type</th>
                           <th className={styles.th}>Status</th>
                           <th className={styles.th}>Deactivation Date</th>
                           <th className={styles.th}>Billing Start</th>
@@ -601,7 +614,7 @@ const UsersPage: React.FC = () => {
                       <tbody>
                         {activitySlice.length === 0 ? (
                           <tr>
-                            <td className={styles.td} colSpan={11} style={{ textAlign: 'center' }}>
+                            <td className={styles.td} colSpan={12} style={{ textAlign: 'center' }}>
                               <Body1>No activity found</Body1>
                             </td>
                           </tr>
@@ -612,6 +625,7 @@ const UsersPage: React.FC = () => {
                               <td className={styles.td}>{u.lastName}</td>
                               <td className={styles.td}>{u.email}</td>
                               <td className={styles.td}>{u.companyName}</td>
+                              <td className={styles.td}>{u.companyType || '—'}</td>
                               <td className={styles.td}>{u.status}</td>
                               <td className={styles.td}>{u.deactivatedAt}</td>
                               <td className={styles.td}>{u.billingStartAt}</td>
@@ -661,6 +675,16 @@ const UsersPage: React.FC = () => {
           onCancel={() => setUserToDeactivate('')}
         />
       )}
+
+      <EditUserModal
+        isOpen={!!editingUser}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={() => {
+          setEditingUser(null);
+          fetchUsers(page, pageSize, appliedGeneralFilters);
+        }}
+      />
     </>
   );
 };

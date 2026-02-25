@@ -33,6 +33,7 @@ export interface CompanyUserActivity {
   _id: string;
   companyId: string;
   companyName: string;
+  companyType?: string;
   firstName: string;
   lastName: string;
   email: string;
