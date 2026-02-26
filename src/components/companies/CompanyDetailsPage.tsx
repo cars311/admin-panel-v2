@@ -43,6 +43,7 @@ import {
   SaveRegular,
   DismissRegular,
   CopyRegular,
+  MailRegular,
 } from '@fluentui/react-icons';
 import type { CompanyDetails, CompanyUser } from '../../types/user';
 import { CompanyStatus } from '../../types/user';
@@ -55,6 +56,7 @@ import {
   deactivateUserFromCompany,
   updateCompany,
   getUserInviteLink,
+  resendUserInvite,
 } from '../../services/users/users';
 import { formatShortDateTime } from '../../utils/formatDate';
 import { convertUserRole } from '../../utils/convertUserRole';
@@ -300,6 +302,26 @@ const CompanyDetailsPage: React.FC = () => {
       setErrorMsg('User Invitation Link was not received!');
       setTimeout(() => setErrorMsg(''), 4000);
     }
+  };
+
+  const handleResendInvite = (userEmail: string) => {
+    showConfirm(
+      'Resend Invite',
+      'Are you sure you want to resend the invite for this user?',
+      async () => {
+        setConfirmDialog((p) => ({ ...p, open: false }));
+        setIsUsersLoading(true);
+        const ok = await resendUserInvite(userEmail);
+        setIsUsersLoading(false);
+        if (ok) {
+          setSuccessMsg('Invite was successfully resent!');
+          setTimeout(() => setSuccessMsg(''), 4000);
+        } else {
+          setErrorMsg('Failed to resend invite.');
+          setTimeout(() => setErrorMsg(''), 4000);
+        }
+      },
+    );
   };
 
   const handleDeactivateUser = (userId: string) => {
@@ -869,6 +891,16 @@ const CompanyDetailsPage: React.FC = () => {
                                       appearance="subtle"
                                       icon={<CopyRegular />}
                                       onClick={() => handleCopyInviteLink(u._id)}
+                                    />
+                                  </Tooltip>
+                                )}
+                                {u.status === 'invited' && (
+                                  <Tooltip content="Resend invite" relationship="label">
+                                    <Button
+                                      size="small"
+                                      appearance="subtle"
+                                      icon={<MailRegular />}
+                                      onClick={() => handleResendInvite(u.email)}
                                     />
                                   </Tooltip>
                                 )}

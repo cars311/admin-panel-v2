@@ -197,6 +197,15 @@ export const updateUser = async (
   }
 };
 
+export const resendUserInvite = async (email: string): Promise<boolean> => {
+  try {
+    await api.post(`email-sender/send-user-invite-link/resend`, { email });
+    return true;
+  } catch (e: any) {
+    return false;
+  }
+};
+
 export const getUserInviteLink = async (userId: string): Promise<string> => {
   try {
     const response = await api.post(`email-sender/invite-link/${userId}`);
