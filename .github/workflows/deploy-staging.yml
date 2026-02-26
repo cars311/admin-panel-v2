@@ -1,0 +1,60 @@
+name: Deploy to EC2 (Staging)
+
+on:
+  push:
+    branches:
+      - staging # This workflow runs when changes are pushed to the 'staging' branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # Use a standard GitHub Actions runner
+    environment: staging # Link this job to the 'staging' environment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Action to check out your repository code
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.0 # Action to connect via SSH and execute commands
+        with:
+          host: ${{ secrets.EC2_HOST }} # EC2 Public IP from GitHub Secret
+          username: ${{ secrets.EC2_USERNAME }} # EC2 SSH username from GitHub Secret
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # EC2 SSH private key from GitHub Secret
+          # Optional: For enhanced security, use known_hosts
+          # known_hosts: ${{ secrets.KNOWN_HOSTS }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }} #SSH passphrase from GitHub Secret
+          script: |
+            # Set up Node.js environment since ssh-action is not login shell
+            export NVM_DIR=~/.nvm
+            source ~/.nvm/nvm.sh
+            # Check NPM,Node.js and PM2 versions
+            npm --version
+            node --version
+            pm2 --version
+
+            # Navigate to the application directory on the EC2 machine
+            cd ${{ secrets.EC2_APP_PATH }}
+
+            # Make sure it's right branch
+            echo "Swithing branch to the staging..."
+            git checkout .
+            git checkout staging
+
+            # Pull the latest changes from the staging branch
+            echo "Pulling latest changes from staging branch..."
+            git pull origin staging
+
+            # Install/update npm dependencies
+            echo "Installing/updating npm dependencies..."
+            npm install --legacy-peer-deps
+
+            # Run the build command
+            echo "Running npm run build..."
+            npm run build
+
+            # Commented because frontend is served by version server
+            # Restart the PM2 process
+            # echo "Restarting pm2 process 'stage-front'..."
+            # pm2 restart stage-front
+
+            echo "Deployment completed successfully!"

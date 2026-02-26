@@ -1,0 +1,111 @@
+name: Deploy to EC2 (Prod)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: admin-panel-deploy-main
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install deps
+        run: npm ci --legacy-peer-deps
+
+      - name: Build
+        run: npm run build:prod
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+          if-no-files-found: error
+          retention-days: 2
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+
+    # 👇 this is the "approval gate"
+    # deploy job runs ONLY when someone clicks "Run workflow"
+    if: github.event_name == 'workflow_dispatch'
+
+    environment:
+      name: prod
+
+    steps:
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: dist
+
+      - name: Upload dist to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          source: "dist"
+          target: "${{ secrets.EC2_APP_PATH }}/.admin-panel-dist-staging"
+          strip_components: 1
+
+      - name: Activate release + rotate backups
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          passphrase: ${{ secrets.SSH_PASSPHRASE }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            
+            DEPLOY_BASE="${{ secrets.EC2_APP_PATH }}"
+            CURRENT="${DEPLOY_BASE}/admin-panel-dist"
+            STAGING="${DEPLOY_BASE}/.admin-panel-dist-staging"
+            
+            # Ensure staging exists (scp created it, but just in case)
+            if [ ! -d "$STAGING" ]; then
+              echo "ERROR: staging folder not found: $STAGING"
+              exit 1
+            fi
+
+            if [ -d "$CURRENT" ] && [ "$(ls -A "$CURRENT" | wc -l)" -gt 0 ]; then
+              STAMP="$(date +%d.%m.%Y-%H:%M:%S)"
+              BACKUP="${DEPLOY_BASE}/admin-panel-dist-${STAMP}"
+              if [ -e "$BACKUP" ]; then
+                BACKUP="${BACKUP}-$(date +%H%M%S)"
+              fi
+              mv "$CURRENT" "$BACKUP"
+            fi
+
+            mv "$STAGING" "$CURRENT"
+
+            cd "$DEPLOY_BASE"
+            BACKUPS=( $(ls -1dt admin-panel-dist-* 2>/dev/null || true) )
+            if [ "${#BACKUPS[@]}" -gt 5 ]; then
+              for old in "${BACKUPS[@]:5}"; do
+                rm -rf "$old"
+              done
+            fi
+
+            echo "✅ Deployed to $CURRENT"
