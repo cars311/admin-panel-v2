@@ -12,7 +12,7 @@ import ScheduledJobsPage from './components/scheduled-jobs/ScheduledJobsPage';
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/admin">
       <AuthProvider>
         <Routes>
           <Route path="/auth/signin" element={<LoginPage />} />
