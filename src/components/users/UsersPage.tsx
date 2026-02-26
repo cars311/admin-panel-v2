@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Card,
@@ -10,6 +10,7 @@ import {
   Spinner,
   Tab,
   TabList,
+  Combobox,
   Dropdown,
   Option,
   Input,
@@ -21,7 +22,7 @@ import {
   DeleteRegular,
   EditRegular,
 } from '@fluentui/react-icons';
-import { sortBy } from 'lodash';
+import { sortBy, debounce } from 'lodash';
 import { useAuth } from '../../context/AuthContext';
 import {
   getAllUsers,
@@ -122,6 +123,8 @@ const UsersPage: React.FC = () => {
 
   const [draftGeneralFilters, setDraftGeneralFilters] = useState(defaultGeneralFilters);
   const [appliedGeneralFilters, setAppliedGeneralFilters] = useState(defaultGeneralFilters);
+  const [generalCompanyInput, setGeneralCompanyInput] = useState('');
+  const [generalCompanyQuery, setGeneralCompanyQuery] = useState('');
   const isGeneralDirty =
     draftGeneralFilters.search !== appliedGeneralFilters.search ||
     draftGeneralFilters.status !== appliedGeneralFilters.status ||
@@ -141,6 +144,8 @@ const UsersPage: React.FC = () => {
 
   const [draftActivityFilters, setDraftActivityFilters] = useState(defaultActivityFilters);
   const [appliedActivityFilters, setAppliedActivityFilters] = useState(defaultActivityFilters);
+  const [activityCompanyInput, setActivityCompanyInput] = useState('');
+  const [activityCompanyQuery, setActivityCompanyQuery] = useState('');
   const isActivityDirty =
     draftActivityFilters.company !== appliedActivityFilters.company ||
     draftActivityFilters.days !== appliedActivityFilters.days ||
@@ -313,6 +318,16 @@ const UsersPage: React.FC = () => {
     return str;
   };
 
+  const debouncedSetGeneralCompanyQuery = useMemo(
+    () => debounce((val: string) => setGeneralCompanyQuery(val), 1000),
+    [],
+  );
+
+  const debouncedSetActivityCompanyQuery = useMemo(
+    () => debounce((val: string) => setActivityCompanyQuery(val), 1000),
+    [],
+  );
+
   const downloadCsv = (rows: string[][], filename: string) => {
     const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map((r) => r.map(escapeCsvField).join(',')).join('\n');
     const link = document.createElement('a');
@@ -341,7 +356,7 @@ const UsersPage: React.FC = () => {
             <FilterBar
               isDirty={isGeneralDirty}
               onApply={() => { setAppliedGeneralFilters(draftGeneralFilters); setPage(1); }}
-              onClear={() => setDraftGeneralFilters(defaultGeneralFilters)}
+              onClear={() => { setDraftGeneralFilters(defaultGeneralFilters); debouncedSetGeneralCompanyQuery.cancel(); setGeneralCompanyInput(''); setGeneralCompanyQuery(''); }}
             >
               <Field label="Search">
                 <Input
@@ -400,20 +415,38 @@ const UsersPage: React.FC = () => {
                 </Dropdown>
               </Field>
               <Field label="Company">
-                <Dropdown
+                <Combobox
                   placeholder="All Companies"
-                  value={companies.find((c) => c.key === draftGeneralFilters.company)?.text || ''}
+                  value={generalCompanyInput}
                   selectedOptions={draftGeneralFilters.company ? [draftGeneralFilters.company] : []}
-                  onOptionSelect={(_, d) =>
-                    setDraftGeneralFilters((f) => ({ ...f, company: d.optionValue as string }))
-                  }
+                  onChange={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const val = e.target.value;
+                    setGeneralCompanyInput(val);
+                    debouncedSetGeneralCompanyQuery(val);
+                  }}
+                  onOptionSelect={(_, d) => {
+                    if (d.optionValue == null) return; // ignore freeform/clears without an option
+                    const val = String(d.optionValue);
+                    setDraftGeneralFilters((f) => ({ ...f, company: val }));
+                    debouncedSetGeneralCompanyQuery.cancel();
+                    const label = val ? (companies.find((c) => c.key === val)?.text || '') : '';
+                    setGeneralCompanyInput(label);
+                    setGeneralCompanyQuery('');
+                  }}
                   style={{ minWidth: 200 }}
+                  freeform
+                  listbox={{ style: { maxHeight: '300px' } }}
                 >
                   <Option value="">All Companies</Option>
-                  {companies.filter((c) => c.key !== 'all').map((c) => (
-                    <Option key={c.key} value={c.key}>{c.text}</Option>
-                  ))}
-                </Dropdown>
+                  {companies
+                    .filter((c) => c.key !== 'all')
+                    .filter((c) => !generalCompanyInput || generalCompanyInput === (companies.find((cc) => cc.key === draftGeneralFilters.company)?.text || '') || c.text.toLowerCase().includes(generalCompanyInput.toLowerCase()))
+                    .map((c) => (
+                      <Option key={c.key} value={c.key}>{c.text}</Option>
+                    ))}
+                </Combobox>
               </Field>
             </FilterBar>
 
@@ -543,23 +576,43 @@ const UsersPage: React.FC = () => {
             <FilterBar
               isDirty={isActivityDirty}
               onApply={() => { setAppliedActivityFilters(draftActivityFilters); setActivityPage(1); }}
-              onClear={() => setDraftActivityFilters(defaultActivityFilters)}
+              onClear={() => { setDraftActivityFilters(defaultActivityFilters); debouncedSetActivityCompanyQuery.cancel(); setActivityCompanyInput(''); setActivityCompanyQuery(''); }}
             >
               <Field label="Company">
-                <Dropdown
-                  value={companies.find((c) => c.key === draftActivityFilters.company)?.text || 'All'}
+                <Combobox
+                  placeholder="All"
+                  value={activityCompanyInput}
                   selectedOptions={[draftActivityFilters.company]}
-                  onOptionSelect={(_, d) =>
-                    setDraftActivityFilters((f) => ({ ...f, company: d.optionValue as string }))
-                  }
+                  onChange={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const val = e.target.value;
+                    setActivityCompanyInput(val);
+                    debouncedSetActivityCompanyQuery(val);
+                  }}
+                  onOptionSelect={(_, d) => {
+                    if (d.optionValue == null) return; // ignore spurious select events
+                    const val = String(d.optionValue);
+                    setDraftActivityFilters((f) => ({ ...f, company: val }));
+                    debouncedSetActivityCompanyQuery.cancel();
+                    const label = val && val !== 'all' ? (companies.find((c) => c.key === val)?.text || '') : '';
+                    setActivityCompanyInput(label);
+                    setActivityCompanyQuery('');
+                  }}
                   style={{ minWidth: 200 }}
+                  freeform
+                  listbox={{ style: { maxHeight: '300px' } }}
                 >
-                  {companies.map((c) => (
-                    <Option key={c.key} value={c.key}>
-                      {c.text}
-                    </Option>
-                  ))}
-                </Dropdown>
+                  <Option value="all">All</Option>
+                  {companies
+                    .filter((c) => c.key !== 'all')
+                    .filter((c) => !activityCompanyInput || activityCompanyInput === (companies.find((cc) => cc.key === draftActivityFilters.company)?.text || '') || c.text.toLowerCase().includes(activityCompanyInput.toLowerCase()))
+                    .map((c) => (
+                      <Option key={c.key} value={c.key}>
+                        {c.text}
+                      </Option>
+                    ))}
+                </Combobox>
               </Field>
               <Field label="Period">
                 <Dropdown
