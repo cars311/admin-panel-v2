@@ -342,7 +342,7 @@ const UsersPage: React.FC = () => {
               <Field label="Status">
                 <Dropdown
                   placeholder="All Statuses"
-                  value={draftGeneralFilters.status || undefined}
+                  value={draftGeneralFilters.status || ''}
                   selectedOptions={draftGeneralFilters.status ? [draftGeneralFilters.status] : []}
                   onOptionSelect={(_, d) =>
                     setDraftGeneralFilters((f) => ({ ...f, status: d.optionValue as string }))
@@ -358,7 +358,7 @@ const UsersPage: React.FC = () => {
               <Field label="Role">
                 <Dropdown
                   placeholder="All Roles"
-                  value={draftGeneralFilters.role || undefined}
+                  value={draftGeneralFilters.role || ''}
                   selectedOptions={draftGeneralFilters.role ? [draftGeneralFilters.role] : []}
                   onOptionSelect={(_, d) =>
                     setDraftGeneralFilters((f) => ({ ...f, role: d.optionValue as string }))
@@ -374,7 +374,7 @@ const UsersPage: React.FC = () => {
               <Field label="Company Type">
                 <Dropdown
                   placeholder="All Types"
-                  value={draftGeneralFilters.companyType || undefined}
+                  value={draftGeneralFilters.companyType || ''}
                   selectedOptions={draftGeneralFilters.companyType ? [draftGeneralFilters.companyType] : []}
                   onOptionSelect={(_, d) =>
                     setDraftGeneralFilters((f) => ({ ...f, companyType: d.optionValue as string }))
@@ -560,7 +560,7 @@ const UsersPage: React.FC = () => {
               <Field label="Company Type">
                 <Dropdown
                   placeholder="All Types"
-                  value={draftActivityFilters.companyType || undefined}
+                  value={draftActivityFilters.companyType || ''}
                   selectedOptions={draftActivityFilters.companyType ? [draftActivityFilters.companyType] : []}
                   onOptionSelect={(_, d) =>
                     setDraftActivityFilters((f) => ({ ...f, companyType: d.optionValue as string }))

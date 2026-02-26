@@ -221,7 +221,7 @@ const TriggerJobModal: React.FC<TriggerJobModalProps> = ({ isOpen, onClose }) =>
               <Field label="Select Job" required>
                 <Dropdown
                   placeholder="Select a job to run"
-                  value={triggerableJobs.find((j) => j.endpoint === selectedEndpoint)?.label || undefined}
+                  value={triggerableJobs.find((j) => j.endpoint === selectedEndpoint)?.label || ''}
                   selectedOptions={selectedEndpoint ? [selectedEndpoint] : []}
                   onOptionSelect={(_, d) => setSelectedEndpoint(d.optionValue as string)}
                 >
@@ -343,7 +343,7 @@ const JobsTab: React.FC = () => {
         <Field label="Status">
           <Dropdown
             placeholder="All Statuses"
-            value={draftFilters.status || undefined}
+            value={draftFilters.status || ''}
             selectedOptions={draftFilters.status ? [draftFilters.status] : []}
             onOptionSelect={(_, d) =>
               setDraftFilters((f) => ({ ...f, status: d.optionValue as string }))
@@ -359,7 +359,7 @@ const JobsTab: React.FC = () => {
         <Field label="Job Type">
           <Dropdown
             placeholder="All Job Types"
-            value={draftFilters.jobType || undefined}
+            value={draftFilters.jobType || ''}
             selectedOptions={draftFilters.jobType ? [draftFilters.jobType] : []}
             onOptionSelect={(_, d) =>
               setDraftFilters((f) => ({ ...f, jobType: d.optionValue as string }))
@@ -579,7 +579,7 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
                 )}
                 <Field label="Job Type" required>
                   <Dropdown
-                    value={jobType || undefined}
+                    value={jobType || ''}
                     selectedOptions={jobType ? [jobType] : []}
                     onOptionSelect={(_, d) => setJobType(d.optionValue as string)}
                     disabled={isEdit}

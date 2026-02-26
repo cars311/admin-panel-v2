@@ -1,3 +1,5 @@
+import type { CompanyTypeEnum } from './company.ts';
+
 export const UserRole = {
   Admin: 'admin',
   CompanyOwner: 'company_owner',
@@ -50,6 +52,7 @@ export interface CompanyI {
   _id: string;
   name: string;
   ownerEmail: string;
+  type: CompanyTypeEnum;
   owner?: { _id: string; email: string; firstName: string; lastName: string; phone: string };
   creationDate: string;
   status: CompanyStatus;

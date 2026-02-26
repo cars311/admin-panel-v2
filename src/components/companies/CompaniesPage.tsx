@@ -190,7 +190,7 @@ const CompaniesPage: React.FC = () => {
         <Field label="Status">
           <Dropdown
             placeholder="All Statuses"
-            value={draftFilters.status || undefined}
+            value={draftFilters.status || ''}
             selectedOptions={draftFilters.status ? [draftFilters.status] : []}
             onOptionSelect={(_, d) =>
               setDraftFilters((f) => ({ ...f, status: d.optionValue as string }))
@@ -206,7 +206,7 @@ const CompaniesPage: React.FC = () => {
         <Field label="Type">
           <Dropdown
             placeholder="All Types"
-            value={draftFilters.type || undefined}
+            value={draftFilters.type || ''}
             selectedOptions={draftFilters.type ? [draftFilters.type] : []}
             onOptionSelect={(_, d) =>
               setDraftFilters((f) => ({ ...f, type: d.optionValue as string }))
