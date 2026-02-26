@@ -78,7 +78,7 @@ const TablePagination: React.FC<TablePaginationProps> = ({
           style={{ minWidth: 120 }}
         >
           {PAGE_SIZE_OPTIONS.map((s) => (
-            <Option key={s} value={String(s)}>
+            <Option key={s} value={String(s)} text={`${s} / page`}>
               {s} / page
             </Option>
           ))}

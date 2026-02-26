@@ -168,7 +168,7 @@ const EditableField: React.FC<{
   label: string;
   value: string;
   onChange: (val: string) => void;
-  type?: string;
+  type?: 'text' | 'email' | 'password' | 'search' | 'tel' | 'url' | 'date' | 'datetime-local' | 'month' | 'number' | 'time' | 'week';
 }> = ({ label, value, onChange, type }) => (
   <Field label={label}>
     <Input value={value} onChange={(_, d) => onChange(d.value)} type={type} />

@@ -124,7 +124,6 @@ const UsersPage: React.FC = () => {
   const [draftGeneralFilters, setDraftGeneralFilters] = useState(defaultGeneralFilters);
   const [appliedGeneralFilters, setAppliedGeneralFilters] = useState(defaultGeneralFilters);
   const [generalCompanyInput, setGeneralCompanyInput] = useState('');
-  const [generalCompanyQuery, setGeneralCompanyQuery] = useState('');
   const isGeneralDirty =
     draftGeneralFilters.search !== appliedGeneralFilters.search ||
     draftGeneralFilters.status !== appliedGeneralFilters.status ||
@@ -145,7 +144,6 @@ const UsersPage: React.FC = () => {
   const [draftActivityFilters, setDraftActivityFilters] = useState(defaultActivityFilters);
   const [appliedActivityFilters, setAppliedActivityFilters] = useState(defaultActivityFilters);
   const [activityCompanyInput, setActivityCompanyInput] = useState('');
-  const [activityCompanyQuery, setActivityCompanyQuery] = useState('');
   const isActivityDirty =
     draftActivityFilters.company !== appliedActivityFilters.company ||
     draftActivityFilters.days !== appliedActivityFilters.days ||
@@ -318,13 +316,13 @@ const UsersPage: React.FC = () => {
     return str;
   };
 
-  const debouncedSetGeneralCompanyQuery = useMemo(
-    () => debounce((val: string) => setGeneralCompanyQuery(val), 1000),
+  const debouncedSetGeneralCompanyInput = useMemo(
+    () => debounce((val: string) => setGeneralCompanyInput(val), 1000),
     [],
   );
 
-  const debouncedSetActivityCompanyQuery = useMemo(
-    () => debounce((val: string) => setActivityCompanyQuery(val), 1000),
+  const debouncedSetActivityCompanyInput = useMemo(
+    () => debounce((val: string) => setActivityCompanyInput(val), 1000),
     [],
   );
 
@@ -356,7 +354,7 @@ const UsersPage: React.FC = () => {
             <FilterBar
               isDirty={isGeneralDirty}
               onApply={() => { setAppliedGeneralFilters(draftGeneralFilters); setPage(1); }}
-              onClear={() => { setDraftGeneralFilters(defaultGeneralFilters); debouncedSetGeneralCompanyQuery.cancel(); setGeneralCompanyInput(''); setGeneralCompanyQuery(''); }}
+              onClear={() => { setDraftGeneralFilters(defaultGeneralFilters); debouncedSetGeneralCompanyInput.cancel(); setGeneralCompanyInput(''); }}
             >
               <Field label="Search">
                 <Input
@@ -424,16 +422,15 @@ const UsersPage: React.FC = () => {
                     e.stopPropagation();
                     const val = e.target.value;
                     setGeneralCompanyInput(val);
-                    debouncedSetGeneralCompanyQuery(val);
+                    debouncedSetGeneralCompanyInput(val);
                   }}
                   onOptionSelect={(_, d) => {
                     if (d.optionValue == null) return; // ignore freeform/clears without an option
                     const val = String(d.optionValue);
                     setDraftGeneralFilters((f) => ({ ...f, company: val }));
-                    debouncedSetGeneralCompanyQuery.cancel();
+                    debouncedSetGeneralCompanyInput.cancel();
                     const label = val ? (companies.find((c) => c.key === val)?.text || '') : '';
                     setGeneralCompanyInput(label);
-                    setGeneralCompanyQuery('');
                   }}
                   style={{ minWidth: 200 }}
                   freeform
@@ -576,7 +573,7 @@ const UsersPage: React.FC = () => {
             <FilterBar
               isDirty={isActivityDirty}
               onApply={() => { setAppliedActivityFilters(draftActivityFilters); setActivityPage(1); }}
-              onClear={() => { setDraftActivityFilters(defaultActivityFilters); debouncedSetActivityCompanyQuery.cancel(); setActivityCompanyInput(''); setActivityCompanyQuery(''); }}
+              onClear={() => { setDraftActivityFilters(defaultActivityFilters); debouncedSetActivityCompanyInput.cancel(); setActivityCompanyInput(''); }}
             >
               <Field label="Company">
                 <Combobox
@@ -588,16 +585,15 @@ const UsersPage: React.FC = () => {
                     e.stopPropagation();
                     const val = e.target.value;
                     setActivityCompanyInput(val);
-                    debouncedSetActivityCompanyQuery(val);
+                    debouncedSetActivityCompanyInput(val);
                   }}
                   onOptionSelect={(_, d) => {
                     if (d.optionValue == null) return; // ignore spurious select events
                     const val = String(d.optionValue);
                     setDraftActivityFilters((f) => ({ ...f, company: val }));
-                    debouncedSetActivityCompanyQuery.cancel();
+                    debouncedSetActivityCompanyInput.cancel();
                     const label = val && val !== 'all' ? (companies.find((c) => c.key === val)?.text || '') : '';
                     setActivityCompanyInput(label);
-                    setActivityCompanyQuery('');
                   }}
                   style={{ minWidth: 200 }}
                   freeform
