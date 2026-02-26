@@ -15,10 +15,11 @@ export const getAllUsers = async (
   status?: string,
   role?: string,
   companyType?: string,
+  companyId?: string,
 ): Promise<UsersRes> => {
   try {
     const response = await api.get('users', {
-      params: { page, limit, search: search || undefined, status: status || undefined, role: role || undefined, companyType: companyType || undefined },
+      params: { page, limit, search: search || undefined, status: status || undefined, role: role || undefined, companyType: companyType || undefined, companyId: companyId || undefined },
     });
     return response.data;
   } catch (e: any) {

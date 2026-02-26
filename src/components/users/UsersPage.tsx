@@ -101,7 +101,7 @@ const dayOptions = [
 ];
 
 const allCompanyTypes = ['broker', 'dealer', 'dealer_used'];
-const defaultGeneralFilters = { search: '', status: '', role: '', companyType: 'broker' };
+const defaultGeneralFilters = { search: '', status: '', role: '', companyType: '', company: '' };
 const defaultActivityFilters = { company: 'all', days: '7_days', search: '', companyType: 'broker' };
 
 const UsersPage: React.FC = () => {
@@ -126,7 +126,8 @@ const UsersPage: React.FC = () => {
     draftGeneralFilters.search !== appliedGeneralFilters.search ||
     draftGeneralFilters.status !== appliedGeneralFilters.status ||
     draftGeneralFilters.role !== appliedGeneralFilters.role ||
-    draftGeneralFilters.companyType !== appliedGeneralFilters.companyType;
+    draftGeneralFilters.companyType !== appliedGeneralFilters.companyType ||
+    draftGeneralFilters.company !== appliedGeneralFilters.company;
 
   // Activity tab state
   const [activityUsers, setActivityUsers] = useState<CompanyUserActivity[]>([]);
@@ -157,6 +158,7 @@ const UsersPage: React.FC = () => {
         filters.status || undefined,
         filters.role || undefined,
         filters.companyType || undefined,
+        filters.company || undefined,
       );
       setUsers(res.users);
       setTotalCount(res.totalCount);
@@ -394,6 +396,22 @@ const UsersPage: React.FC = () => {
                   <Option value="">All Types</Option>
                   {allCompanyTypes.map((t) => (
                     <Option key={t} value={t}>{t}</Option>
+                  ))}
+                </Dropdown>
+              </Field>
+              <Field label="Company">
+                <Dropdown
+                  placeholder="All Companies"
+                  value={companies.find((c) => c.key === draftGeneralFilters.company)?.text || ''}
+                  selectedOptions={draftGeneralFilters.company ? [draftGeneralFilters.company] : []}
+                  onOptionSelect={(_, d) =>
+                    setDraftGeneralFilters((f) => ({ ...f, company: d.optionValue as string }))
+                  }
+                  style={{ minWidth: 200 }}
+                >
+                  <Option value="">All Companies</Option>
+                  {companies.filter((c) => c.key !== 'all').map((c) => (
+                    <Option key={c.key} value={c.key}>{c.text}</Option>
                   ))}
                 </Dropdown>
               </Field>
