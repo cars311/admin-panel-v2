@@ -197,6 +197,15 @@ export const updateUser = async (
   }
 };
 
+export const getUserInviteLink = async (userId: string): Promise<string> => {
+  try {
+    const response = await api.post(`email-sender/invite-link/${userId}`);
+    return response.data.link;
+  } catch (e: any) {
+    return '';
+  }
+};
+
 export const createCompanyUserByAdmin = async (
   companyId: string,
   data: { email: string; phone: string; firstName: string; lastName: string; roles: string[] },

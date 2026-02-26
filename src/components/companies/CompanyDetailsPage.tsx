@@ -42,6 +42,7 @@ import {
   PeopleCommunity24Regular,
   SaveRegular,
   DismissRegular,
+  CopyRegular,
 } from '@fluentui/react-icons';
 import type { CompanyDetails, CompanyUser } from '../../types/user';
 import { CompanyStatus } from '../../types/user';
@@ -53,6 +54,7 @@ import {
   activateUserFromCompany,
   deactivateUserFromCompany,
   updateCompany,
+  getUserInviteLink,
 } from '../../services/users/users';
 import { formatShortDateTime } from '../../utils/formatDate';
 import { convertUserRole } from '../../utils/convertUserRole';
@@ -284,6 +286,20 @@ const CompanyDetailsPage: React.FC = () => {
       await activateUserFromCompany(userId);
       await loadUsers();
     });
+  };
+
+  const handleCopyInviteLink = async (userId: string) => {
+    setIsUsersLoading(true);
+    const link = await getUserInviteLink(userId);
+    setIsUsersLoading(false);
+    if (link) {
+      navigator.clipboard.writeText(link);
+      setSuccessMsg('User Invitation Link was successfully copied!');
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } else {
+      setErrorMsg('User Invitation Link was not received!');
+      setTimeout(() => setErrorMsg(''), 4000);
+    }
   };
 
   const handleDeactivateUser = (userId: string) => {
@@ -846,6 +862,16 @@ const CompanyDetailsPage: React.FC = () => {
                                     onClick={() => setEditingUser(u)}
                                   />
                                 </Tooltip>
+                                {u.status === 'invited' && (
+                                  <Tooltip content="Copy invite link" relationship="label">
+                                    <Button
+                                      size="small"
+                                      appearance="subtle"
+                                      icon={<CopyRegular />}
+                                      onClick={() => handleCopyInviteLink(u._id)}
+                                    />
+                                  </Tooltip>
+                                )}
                                 {u.status === 'deactivated' ? (
                                   <Tooltip content="Activate user" relationship="label">
                                     <Button
