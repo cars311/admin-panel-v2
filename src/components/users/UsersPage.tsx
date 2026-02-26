@@ -252,19 +252,20 @@ const UsersPage: React.FC = () => {
     try {
       const { users: allU } = await getAllUsers(1, 10000);
       const rows = [
-        ['Company Name', 'First Name', 'Last Name', 'Email', 'Role', 'Latest Login', 'SignIn Date', 'Trial Days', 'Billing Start', 'Status'],
+        ['Company Name', 'Company Type', 'First Name', 'Last Name', 'Email', 'Roles', 'SignIn Date', 'Latest Login', 'Trial Days', 'Billing Start', 'Status'],
       ];
       for (const u of allU) {
         rows.push([
           (u as any).companyName || '',
+          (u as any).companyType || '',
           u.firstName,
           u.lastName,
           u.email,
-          u.roles[0] ? convertUserRole(u.roles[0]) : 'None',
-          u.lastLogin ? formatShortDateTime(u.lastLogin) : 'None',
+          u.roles?.length ? u.roles.map((r) => convertUserRole(r)).join('; ') : 'None',
           u.activatedAt ? formatShortDateTime(u.activatedAt) : 'None',
+          u.lastLogin ? formatShortDateTime(u.lastLogin) : 'None',
           u.isTrial ? String(u.trialDays) : 'None',
-          formatShortDateTime(u.billingStartAt),
+          u.billingStartAt ? formatShortDateTime(u.billingStartAt) : 'None',
           capitalize(u.status),
         ]);
       }
@@ -277,7 +278,7 @@ const UsersPage: React.FC = () => {
   const exportActivityCsv = () => {
     try {
       const rows: string[][] = [
-        ['First Name', 'Last Name', 'Email', 'Company Name', 'Status', 'Deactivation Date', 'Billing Start', 'Last Login', 'Activity Date', 'Quotes Count', 'Deals Count'],
+        ['First Name', 'Last Name', 'Email', 'Company Name', 'Company Type', 'Status', 'Deactivation Date', 'Billing Start', 'Last Login', 'Activity Date', 'Quotes Count', 'Deals Count'],
       ];
       for (const u of displayedActivity) {
         rows.push([
@@ -285,6 +286,7 @@ const UsersPage: React.FC = () => {
           u.lastName,
           u.email,
           u.companyName,
+          u.companyType || '',
           u.status,
           u.deactivatedAt,
           u.billingStartAt,
@@ -301,8 +303,16 @@ const UsersPage: React.FC = () => {
     }
   };
 
+  const escapeCsvField = (field: string): string => {
+    const str = field == null ? '' : String(field);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+
   const downloadCsv = (rows: string[][], filename: string) => {
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((r) => r.join(',')).join('\n');
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + rows.map((r) => r.map(escapeCsvField).join(',')).join('\n');
     const link = document.createElement('a');
     link.setAttribute('href', encodeURI(csvContent));
     link.setAttribute('download', filename);
