@@ -54,6 +54,7 @@ jobs:
 
             # Rename dist folder to build for legacy reasons
             echo "Running folder rename..."
+            rm -r build
             mv dist build
 
             # Restart the PM2 process
