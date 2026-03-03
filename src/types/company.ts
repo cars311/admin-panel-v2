@@ -29,6 +29,7 @@ export interface IDealerData {
   areaCode?: string;
   county?: string;
   city?: string;
+  inCity?: boolean;
   zip?: string;
   address?: string;
   phone?: string;
@@ -45,9 +46,20 @@ export interface CreateCompanyBody {
   billingAddress: string;
   billingCity: string;
   billingState: string;
+  billingZipCode: string;
+  billingInCity: boolean;
   billingTaxId: string;
   billingEmail: string;
-  billingZipCode: string;
+  billingCounty: string;
+  soldToName: string;
+  soldToAddress: string;
+  soldToCity: string;
+  soldToState: string;
+  soldToZipCode: string;
+  soldToInCity: boolean;
+  soldToTaxId: string;
+  soldToEmail: string;
+  soldToCounty: string;
   isTrialActive: boolean;
   trialDays: number;
   brokerData: IBrokerData;
@@ -68,14 +80,15 @@ export const companyDataDealerTypeFields: {
   { fieldName: 'dealerLegalName', label: 'Dealer Legal Name', required: true },
   { fieldName: 'dealerId', label: 'Dealer ID', required: true },
   { fieldName: 'defaultMake', label: 'Default Make', required: true },
+  { fieldName: 'zip', label: 'ZIP', required: false },
   { fieldName: 'state', label: 'State', required: false },
+  { fieldName: 'county', label: 'County', required: false },
+  { fieldName: 'city', label: 'City', required: false },
+  { fieldName: 'inCity', label: 'In City', required: false },
   { fieldName: 'region', label: 'Region', required: false },
   { fieldName: 'regionCode', label: 'Region Code', required: false },
   { fieldName: 'area', label: 'Area', required: false },
   { fieldName: 'areaCode', label: 'Area Code', required: false },
-  { fieldName: 'county', label: 'County', required: false },
-  { fieldName: 'city', label: 'City', required: false },
-  { fieldName: 'zip', label: 'ZIP', required: false },
   { fieldName: 'address', label: 'Address', required: false },
   { fieldName: 'phone', label: 'Phone', required: false },
 ];
