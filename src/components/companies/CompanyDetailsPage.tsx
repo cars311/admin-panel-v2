@@ -62,6 +62,7 @@ import {
 import { formatShortDateTime } from '../../utils/formatDate';
 import { convertUserRole } from '../../utils/convertUserRole';
 import EditUserModal from '../common/EditUserModal';
+import TablePagination from '../common/TablePagination';
 import CreateUserModal from '../common/CreateUserModal';
 import { searchByZipCode } from '../../services/zip-code/zip-code';
 
@@ -221,7 +222,7 @@ const CompanyDetailsPage: React.FC = () => {
   const [users, setUsers] = useState<CompanyUser[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const [activeTab, setActiveTab] = useState<'info' | 'users'>('info');
 
   const [isLoading, setIsLoading] = useState(true);
@@ -256,7 +257,7 @@ const CompanyDetailsPage: React.FC = () => {
 
   useEffect(() => {
     if (id && activeTab === 'users') loadUsers();
-  }, [id, activeTab, pageIndex]);
+  }, [id, activeTab, pageIndex, pageSize]);
 
   const loadCompany = async () => {
     setIsLoading(true);
@@ -1114,28 +1115,18 @@ const CompanyDetailsPage: React.FC = () => {
                   </Table>
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-                    <Button
-                      size="small"
-                      disabled={pageIndex === 0}
-                      onClick={() => setPageIndex((p) => p - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Text>
-                      Page {pageIndex + 1} of {totalPages} ({totalUsers} total)
-                    </Text>
-                    <Button
-                      size="small"
-                      disabled={pageIndex + 1 >= totalPages}
-                      onClick={() => setPageIndex((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
+                <TablePagination
+                  page={pageIndex + 1}
+                  totalPages={totalPages}
+                  totalCount={totalUsers}
+                  pageSize={pageSize}
+                  onPageChange={(p) => setPageIndex(p - 1)}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPageIndex(0);
+                  }}
+                  itemLabel="users"
+                />
               </>
             )}
           </Card>
