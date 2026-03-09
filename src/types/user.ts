@@ -72,18 +72,20 @@ export interface CompanyDetails {
   billingCity: string;
   billingState: string;
   billingZipCode: string;
+  billingInCity: boolean;
   billingTaxId: string;
   billingEmail: string;
-  billingCountry: string;
+  billingCounty: string;
   soldToName: string;
   soldToAddress: string;
   soldToAddressTwo: string;
   soldToCity: string;
   soldToState: string;
   soldToZipCode: string;
+  soldToInCity: boolean;
   soldToTaxId: string;
   soldToEmail: string;
-  soldToCountry: string;
+  soldToCounty: string;
   dealerData?: {
     dealerName: string;
     dealerLegalName: string;
@@ -96,6 +98,7 @@ export interface CompanyDetails {
     areaCode: string;
     county: string;
     city: string;
+    inCity: boolean;
     zip: string;
     address: string;
     phone: string;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Dialog,
   DialogSurface,
@@ -14,6 +14,7 @@ import {
   Dropdown,
   Option,
   Subtitle2,
+  Switch,
   makeStyles,
   MessageBar,
   MessageBarBody,
@@ -32,6 +33,7 @@ import {
 } from '../../types/company';
 import { sendNewCompanyInviteLink } from '../../services/auth/email';
 import { getAllMakes } from '../../services/vehicle/vehicle';
+import { searchByZipCode } from '../../services/zip-code/zip-code';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -47,6 +49,7 @@ const cleanDealerData: IDealerData = {
   areaCode: '',
   county: '',
   city: '',
+  inCity: false,
   zip: '',
   address: '',
   phone: '',
@@ -72,9 +75,20 @@ const cleanData: CreateCompanyFormData = {
   billingAddress: '',
   billingCity: '',
   billingZipCode: '',
-  billingEmail: '',
+  billingInCity: false,
   billingState: '',
+  billingEmail: '',
   billingTaxId: '',
+  billingCounty: '',
+  soldToName: '',
+  soldToAddress: '',
+  soldToCity: '',
+  soldToZipCode: '',
+  soldToInCity: false,
+  soldToState: '',
+  soldToEmail: '',
+  soldToTaxId: '',
+  soldToCounty: '',
   isTrialActive: false,
   trialDays: 14,
   dealerData: { ...cleanDealerData },
@@ -104,6 +118,41 @@ const useStyles = makeStyles({
     maxWidth: '900px',
     width: '90vw',
   },
+  zipWrap: {
+    position: 'relative',
+  },
+  zipPickerPanel: {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    zIndex: 100,
+    backgroundColor: '#fff',
+    border: '1px solid #d1d1d1',
+    borderRadius: '6px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    overflow: 'hidden',
+    minWidth: '180px',
+  },
+  zipPickerHeader: {
+    padding: '4px 12px',
+    fontSize: '11px',
+    color: '#666',
+    backgroundColor: '#fafafa',
+    borderBottom: '1px solid #efefef',
+  },
+  zipPickerOption: {
+    display: 'block',
+    width: '100%',
+    padding: '8px 12px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: '13px',
+    ':hover': {
+      backgroundColor: '#f5f5f5',
+    },
+  },
 });
 
 interface CreateCompanyModalProps {
@@ -122,6 +171,10 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
   const [makes, setMakes] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [pendingZip, setPendingZip] = useState<{
+    target: 'billing' | 'soldTo' | 'dealer';
+    results: import('../../services/zip-code/zip-code').ZipCodeResult[];
+  } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -170,7 +223,7 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
     }));
   };
 
-  const updateTypeData = (fieldName: string, value: string) => {
+  const updateTypeData = (fieldName: string, value: any) => {
     const isDealer = formData.type === CompanyTypeEnum.DEALER;
     const dataKey = isDealer ? 'dealerData' : 'brokerData';
     setFormData((prev) => ({
@@ -182,8 +235,54 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
   const handleClose = () => {
     setFormData({ ...cleanData });
     setErrorMessage('');
+    setPendingZip(null);
     onClose();
   };
+
+  const handleZipSearch = useCallback(async (
+    zipCode: string,
+    target: 'billing' | 'soldTo' | 'dealer',
+  ) => {
+    if (zipCode.length < 5) return;
+    const results = await searchByZipCode(zipCode);
+    if (!results || results.length === 0) return;
+    setPendingZip({ target, results });
+  }, []);
+
+  const applyZipResult = useCallback((result: import('../../services/zip-code/zip-code').ZipCodeResult) => {
+    if (!pendingZip) return;
+    const { target } = pendingZip;
+    const { state, city, county, inCity } = result;
+    if (target === 'billing') {
+      setFormData((prev) => ({
+        ...prev,
+        billingState: state,
+        billingCity: city,
+        billingCounty: county,
+        billingInCity: inCity,
+      }));
+    } else if (target === 'soldTo') {
+      setFormData((prev) => ({
+        ...prev,
+        soldToState: state,
+        soldToCity: city,
+        soldToCounty: county,
+        soldToInCity: inCity,
+      }));
+    } else if (target === 'dealer') {
+      setFormData((prev) => ({
+        ...prev,
+        dealerData: {
+          ...prev.dealerData,
+          state,
+          county,
+          city,
+          inCity,
+        },
+      }));
+    }
+    setPendingZip(null);
+  }, [pendingZip]);
 
   const isFormValid = () => {
     const f = formData;
@@ -296,54 +395,100 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
                 {formData.type === CompanyTypeEnum.DEALER ? 'Dealer Data' : 'Broker Data'}
               </Subtitle2>
               <div className={styles.row}>
-                {typeFields.map((field) => (
-                  <Field
-                    key={field.fieldName}
-                    label={field.label}
-                    required={field.required}
-                    className={styles.field}
-                  >
-                    {field.fieldName === 'defaultMake' ? (
-                      <Dropdown
-                        value={
-                          formData.type === CompanyTypeEnum.DEALER
-                            ? formData.dealerData.defaultMake || ''
-                            : formData.brokerData.defaultMake || ''
-                        }
-                        selectedOptions={[
-                          formData.type === CompanyTypeEnum.DEALER
-                            ? formData.dealerData.defaultMake || ''
-                            : formData.brokerData.defaultMake || '',
-                        ]}
-                        onOptionSelect={(_, d) =>
-                          updateTypeData('defaultMake', d.optionValue as string)
-                        }
-                        placeholder="Select Make"
-                      >
-                        {makes.map((make) => (
-                          <Option
-                            key={make}
-                            value={make.toLowerCase().trim().replace(/ /g, '_')}
-                          >
-                            {make}
-                          </Option>
-                        ))}
-                      </Dropdown>
-                    ) : (
-                      <Input
-                        value={
-                          formData.type === CompanyTypeEnum.DEALER
-                            ? (formData.dealerData as any)[field.fieldName] || ''
-                            : (formData.brokerData as any)[field.fieldName] || ''
-                        }
-                        onChange={(_, d) =>
-                          updateTypeData(field.fieldName, d.value)
-                        }
-                        placeholder={field.label}
-                      />
-                    )}
-                  </Field>
-                ))}
+                {typeFields.map((field) => {
+                  if (field.fieldName === 'inCity') {
+                    return (
+                      <Field key={field.fieldName} label={field.label} className={styles.field}>
+                        <Switch
+                          checked={formData.dealerData.inCity ?? false}
+                          onChange={(_, d) => updateTypeData('inCity', d.checked)}
+                        />
+                      </Field>
+                    );
+                  }
+                  if (field.fieldName === 'zip') {
+                    return (
+                      <Field key={field.fieldName} label={field.label} className={styles.field}>
+                        <div className={styles.zipWrap}>
+                          <Input
+                            value={
+                              formData.type === CompanyTypeEnum.DEALER
+                                ? (formData.dealerData as any)[field.fieldName] || ''
+                                : (formData.brokerData as any)[field.fieldName] || ''
+                            }
+                            onChange={(_, d) => {
+                              updateTypeData(field.fieldName, d.value);
+                              if (d.value.length >= 5) {
+                                handleZipSearch(d.value, 'dealer');
+                              } else {
+                                setPendingZip(null);
+                              }
+                            }}
+                            placeholder={field.label}
+                          />
+                          {pendingZip?.target === 'dealer' && (
+                            <div className={styles.zipPickerPanel}>
+                              <div className={styles.zipPickerHeader}>Select address</div>
+                              {pendingZip.results.map((r, i) => (
+                                <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                                  {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </Field>
+                    );
+                  }
+                  return (
+                    <Field
+                      key={field.fieldName}
+                      label={field.label}
+                      required={field.required}
+                      className={styles.field}
+                    >
+                      {field.fieldName === 'defaultMake' ? (
+                        <Dropdown
+                          value={
+                            formData.type === CompanyTypeEnum.DEALER
+                              ? formData.dealerData.defaultMake || ''
+                              : formData.brokerData.defaultMake || ''
+                          }
+                          selectedOptions={[
+                            formData.type === CompanyTypeEnum.DEALER
+                              ? formData.dealerData.defaultMake || ''
+                              : formData.brokerData.defaultMake || '',
+                          ]}
+                          onOptionSelect={(_, d) =>
+                            updateTypeData('defaultMake', d.optionValue as string)
+                          }
+                          placeholder="Select Make"
+                        >
+                          {makes.map((make) => (
+                            <Option
+                              key={make}
+                              value={make.toLowerCase().trim().replace(/ /g, '_')}
+                            >
+                              {make}
+                            </Option>
+                          ))}
+                        </Dropdown>
+                      ) : (
+                        <Input
+                          value={
+                            formData.type === CompanyTypeEnum.DEALER
+                              ? (formData.dealerData as any)[field.fieldName] || ''
+                              : (formData.brokerData as any)[field.fieldName] || ''
+                          }
+                          onChange={(_, d) =>
+                            updateTypeData(field.fieldName, d.value)
+                          }
+                          placeholder={field.label}
+                        />
+                      )}
+                    </Field>
+                  );
+                })}
               </div>
 
               <Subtitle2 className={styles.section}>Owner Information</Subtitle2>
@@ -417,11 +562,44 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
 
               <Subtitle2 className={styles.section}>Billing Information</Subtitle2>
               <div className={styles.row}>
-                <Field label="Billing Address" required className={styles.field}>
+                <Field label="Billing Zip Code" required className={styles.field}>
+                  <div className={styles.zipWrap}>
+                    <Input
+                      value={formData.billingZipCode}
+                      onChange={(_, d) => {
+                        updateField('billingZipCode', d.value);
+                        if (d.value.length >= 5) {
+                          handleZipSearch(d.value, 'billing');
+                        } else {
+                          setPendingZip(null);
+                        }
+                      }}
+                      placeholder="Zip Code"
+                    />
+                    {pendingZip?.target === 'billing' && (
+                      <div className={styles.zipPickerPanel}>
+                        <div className={styles.zipPickerHeader}>Select address</div>
+                        {pendingZip.results.map((r, i) => (
+                          <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                            {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Billing State" required className={styles.field}>
                   <Input
-                    value={formData.billingAddress}
-                    onChange={(_, d) => updateField('billingAddress', d.value)}
-                    placeholder="Address"
+                    value={formData.billingState}
+                    onChange={(_, d) => updateField('billingState', d.value)}
+                    placeholder="State"
+                  />
+                </Field>
+                <Field label="Billing County" className={styles.field}>
+                  <Input
+                    value={formData.billingCounty}
+                    onChange={(_, d) => updateField('billingCounty', d.value)}
+                    placeholder="County"
                   />
                 </Field>
                 <Field label="Billing City" required className={styles.field}>
@@ -431,20 +609,19 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
                     placeholder="City"
                   />
                 </Field>
-                <Field label="Billing State" required className={styles.field}>
-                  <Input
-                    value={formData.billingState}
-                    onChange={(_, d) => updateField('billingState', d.value)}
-                    placeholder="State"
-                  />
-                </Field>
               </div>
               <div className={styles.row}>
-                <Field label="Billing Zip Code" required className={styles.field}>
+                <Field label="Billing In City" className={styles.field}>
+                  <Switch
+                    checked={formData.billingInCity}
+                    onChange={(_, d) => updateField('billingInCity', d.checked)}
+                  />
+                </Field>
+                <Field label="Billing Address" required className={styles.field}>
                   <Input
-                    value={formData.billingZipCode}
-                    onChange={(_, d) => updateField('billingZipCode', d.value)}
-                    placeholder="Zip Code"
+                    value={formData.billingAddress}
+                    onChange={(_, d) => updateField('billingAddress', d.value)}
+                    placeholder="Address"
                   />
                 </Field>
                 <Field label="Billing Tax ID" required className={styles.field}>
@@ -474,6 +651,94 @@ const CreateCompanyModal: React.FC<CreateCompanyModalProps> = ({
                     value={formData.billingEmail}
                     onChange={(_, d) => updateField('billingEmail', d.value)}
                     onBlur={() => handleEmailBlur('billingEmail')}
+                    placeholder="Email"
+                  />
+                </Field>
+              </div>
+
+              <Subtitle2 className={styles.section}>Sold To Information</Subtitle2>
+              <div className={styles.row}>
+                <Field label="Sold To Zip Code" className={styles.field}>
+                  <div className={styles.zipWrap}>
+                    <Input
+                      value={formData.soldToZipCode}
+                      onChange={(_, d) => {
+                        updateField('soldToZipCode', d.value);
+                        if (d.value.length >= 5) {
+                          handleZipSearch(d.value, 'soldTo');
+                        } else {
+                          setPendingZip(null);
+                        }
+                      }}
+                      placeholder="Zip Code"
+                    />
+                    {pendingZip?.target === 'soldTo' && (
+                      <div className={styles.zipPickerPanel}>
+                        <div className={styles.zipPickerHeader}>Select address</div>
+                        {pendingZip.results.map((r, i) => (
+                          <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                            {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Field>
+                <Field label="Sold To State" className={styles.field}>
+                  <Input
+                    value={formData.soldToState}
+                    onChange={(_, d) => updateField('soldToState', d.value)}
+                    placeholder="State"
+                  />
+                </Field>
+                <Field label="Sold To County" className={styles.field}>
+                  <Input
+                    value={formData.soldToCounty}
+                    onChange={(_, d) => updateField('soldToCounty', d.value)}
+                    placeholder="County"
+                  />
+                </Field>
+                <Field label="Sold To City" className={styles.field}>
+                  <Input
+                    value={formData.soldToCity}
+                    onChange={(_, d) => updateField('soldToCity', d.value)}
+                    placeholder="City"
+                  />
+                </Field>
+                <Field label="Sold To In City" className={styles.field}>
+                  <Switch
+                    checked={formData.soldToInCity}
+                    onChange={(_, d) => updateField('soldToInCity', d.checked)}
+                  />
+                </Field>
+                <Field label="Sold To Name" className={styles.field}>
+                  <Input
+                    value={formData.soldToName}
+                    onChange={(_, d) => updateField('soldToName', d.value)}
+                    placeholder="Name"
+                  />
+                </Field>
+                <Field label="Sold To Address" className={styles.field}>
+                  <Input
+                    value={formData.soldToAddress}
+                    onChange={(_, d) => updateField('soldToAddress', d.value)}
+                    placeholder="Address"
+                  />
+                </Field>
+              </div>
+              <div className={styles.row}>
+                <Field label="Sold To Tax ID" className={styles.field}>
+                  <Input
+                    value={formData.soldToTaxId}
+                    onChange={(_, d) => updateField('soldToTaxId', d.value)}
+                    placeholder="Tax ID"
+                  />
+                </Field>
+                <Field label="Sold To Email" className={styles.field}>
+                  <Input
+                    type="email"
+                    value={formData.soldToEmail}
+                    onChange={(_, d) => updateField('soldToEmail', d.value)}
                     placeholder="Email"
                   />
                 </Field>

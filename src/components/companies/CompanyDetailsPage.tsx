@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Badge,
@@ -28,6 +28,7 @@ import {
   Title2,
   Title3,
   Tooltip,
+  Switch,
   makeStyles,
   tokens,
 } from '@fluentui/react-components';
@@ -61,7 +62,9 @@ import {
 import { formatShortDateTime } from '../../utils/formatDate';
 import { convertUserRole } from '../../utils/convertUserRole';
 import EditUserModal from '../common/EditUserModal';
+import TablePagination from '../common/TablePagination';
 import CreateUserModal from '../common/CreateUserModal';
+import { searchByZipCode } from '../../services/zip-code/zip-code';
 
 const allCompanyTypes = ['broker', 'dealer', 'dealer_used'];
 
@@ -145,6 +148,41 @@ const useStyles = makeStyles({
     display: 'flex',
     gap: '8px',
   },
+  zipWrap: {
+    position: 'relative',
+  },
+  zipPickerPanel: {
+    position: 'absolute',
+    top: 'calc(100% + 4px)',
+    left: 0,
+    zIndex: 100,
+    backgroundColor: '#fff',
+    border: '1px solid #d1d1d1',
+    borderRadius: '6px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+    overflow: 'hidden',
+    minWidth: '180px',
+  },
+  zipPickerHeader: {
+    padding: '4px 12px',
+    fontSize: '11px',
+    color: '#666',
+    backgroundColor: '#fafafa',
+    borderBottom: '1px solid #efefef',
+  },
+  zipPickerOption: {
+    display: 'block',
+    width: '100%',
+    padding: '8px 12px',
+    border: 'none',
+    backgroundColor: 'transparent',
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: '13px',
+    ':hover': {
+      backgroundColor: '#f5f5f5',
+    },
+  },
 });
 
 const statusColor = (status: string) => {
@@ -184,7 +222,7 @@ const CompanyDetailsPage: React.FC = () => {
   const [users, setUsers] = useState<CompanyUser[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
-  const [pageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(10);
   const [activeTab, setActiveTab] = useState<'info' | 'users'>('info');
 
   const [isLoading, setIsLoading] = useState(true);
@@ -201,6 +239,10 @@ const CompanyDetailsPage: React.FC = () => {
   // User edit/create modals
   const [editingUser, setEditingUser] = useState<CompanyUser | null>(null);
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
+  const [pendingZip, setPendingZip] = useState<{
+    target: 'billing' | 'soldTo' | 'dealer';
+    results: import('../../services/zip-code/zip-code').ZipCodeResult[];
+  } | null>(null);
 
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
@@ -215,7 +257,7 @@ const CompanyDetailsPage: React.FC = () => {
 
   useEffect(() => {
     if (id && activeTab === 'users') loadUsers();
-  }, [id, activeTab, pageIndex]);
+  }, [id, activeTab, pageIndex, pageSize]);
 
   const loadCompany = async () => {
     setIsLoading(true);
@@ -350,7 +392,8 @@ const CompanyDetailsPage: React.FC = () => {
       billingCity: company.billingCity || '',
       billingState: company.billingState || '',
       billingZipCode: company.billingZipCode || '',
-      billingCountry: company.billingCountry || '',
+      billingInCity: company.billingInCity ?? false,
+      billingCounty: company.billingCounty || '',
       soldToName: company.soldToName || '',
       soldToEmail: company.soldToEmail || '',
       soldToTaxId: company.soldToTaxId || '',
@@ -359,7 +402,8 @@ const CompanyDetailsPage: React.FC = () => {
       soldToCity: company.soldToCity || '',
       soldToState: company.soldToState || '',
       soldToZipCode: company.soldToZipCode || '',
-      soldToCountry: company.soldToCountry || '',
+      soldToInCity: company.soldToInCity ?? false,
+      soldToCounty: company.soldToCounty || '',
       // dealer data
       dealerName: company.dealerData?.dealerName || '',
       dealerLegalName: company.dealerData?.dealerLegalName || '',
@@ -372,6 +416,7 @@ const CompanyDetailsPage: React.FC = () => {
       dealerAreaCode: company.dealerData?.areaCode || '',
       dealerCounty: company.dealerData?.county || '',
       dealerCity: company.dealerData?.city || '',
+      dealerInCity: company.dealerData?.inCity ?? false,
       dealerZip: company.dealerData?.zip || '',
       dealerAddress: company.dealerData?.address || '',
       dealerPhone: company.dealerData?.phone || '',
@@ -408,7 +453,8 @@ const CompanyDetailsPage: React.FC = () => {
         billingCity: editData.billingCity,
         billingState: editData.billingState,
         billingZipCode: editData.billingZipCode,
-        billingCountry: editData.billingCountry,
+        billingInCity: editData.billingInCity,
+        billingCounty: editData.billingCounty,
         soldToName: editData.soldToName,
         soldToEmail: editData.soldToEmail,
         soldToTaxId: editData.soldToTaxId,
@@ -417,7 +463,8 @@ const CompanyDetailsPage: React.FC = () => {
         soldToCity: editData.soldToCity,
         soldToState: editData.soldToState,
         soldToZipCode: editData.soldToZipCode,
-        soldToCountry: editData.soldToCountry,
+        soldToInCity: editData.soldToInCity,
+        soldToCounty: editData.soldToCounty,
       };
       if (editData.licensed_seats !== '') {
         payload.licensed_seats = Number(editData.licensed_seats);
@@ -436,6 +483,7 @@ const CompanyDetailsPage: React.FC = () => {
           areaCode: editData.dealerAreaCode,
           county: editData.dealerCounty,
           city: editData.dealerCity,
+          inCity: editData.dealerInCity,
           zip: editData.dealerZip,
           address: editData.dealerAddress,
           phone: editData.dealerPhone,
@@ -460,9 +508,51 @@ const CompanyDetailsPage: React.FC = () => {
     }
   };
 
-  const updateField = (key: string, value: string) => {
+  const updateField = (key: string, value: any) => {
     setEditData((prev) => ({ ...prev, [key]: value }));
   };
+
+  const handleZipSearch = useCallback(async (
+    zipCode: string,
+    target: 'billing' | 'soldTo' | 'dealer',
+  ) => {
+    if (zipCode.length < 5) return;
+    const results = await searchByZipCode(zipCode);
+    if (!results || results.length === 0) return;
+    setPendingZip({ target, results });
+  }, []);
+
+  const applyZipResult = useCallback((result: import('../../services/zip-code/zip-code').ZipCodeResult) => {
+    if (!pendingZip) return;
+    const { target } = pendingZip;
+    const { state, city, county, inCity } = result;
+    if (target === 'billing') {
+      setEditData((prev) => ({
+        ...prev,
+        billingState: state,
+        billingCity: city,
+        billingCounty: county,
+        billingInCity: inCity,
+      }));
+    } else if (target === 'soldTo') {
+      setEditData((prev) => ({
+        ...prev,
+        soldToState: state,
+        soldToCity: city,
+        soldToCounty: county,
+        soldToInCity: inCity,
+      }));
+    } else if (target === 'dealer') {
+      setEditData((prev) => ({
+        ...prev,
+        dealerState: state,
+        dealerCounty: county,
+        dealerCity: city,
+        dealerInCity: inCity,
+      }));
+    }
+    setPendingZip(null);
+  }, [pendingZip]);
 
   if (isLoading) {
     return (
@@ -641,24 +731,55 @@ const CompanyDetailsPage: React.FC = () => {
                     <EditableField label="Billing Name" value={editData.billingName} onChange={(v) => updateField('billingName', v)} />
                     <EditableField label="Billing Email" value={editData.billingEmail} onChange={(v) => updateField('billingEmail', v)} type="email" />
                     <EditableField label="Billing Tax ID" value={editData.billingTaxId} onChange={(v) => updateField('billingTaxId', v)} />
+                    <Field label="Billing Zip Code">
+                      <div className={styles.zipWrap}>
+                        <Input
+                          value={editData.billingZipCode}
+                          onChange={(_, d) => {
+                            updateField('billingZipCode', d.value);
+                            if (d.value.length >= 5) {
+                              handleZipSearch(d.value, 'billing');
+                            } else {
+                              setPendingZip(null);
+                            }
+                          }}
+                        />
+                        {pendingZip?.target === 'billing' && (
+                          <div className={styles.zipPickerPanel}>
+                            <div className={styles.zipPickerHeader}>Select address</div>
+                            {pendingZip.results.map((r, i) => (
+                              <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                                {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Field>
+                    <EditableField label="Billing State" value={editData.billingState} onChange={(v) => updateField('billingState', v)} />
+                    <EditableField label="Billing County" value={editData.billingCounty} onChange={(v) => updateField('billingCounty', v)} />
+                    <EditableField label="Billing City" value={editData.billingCity} onChange={(v) => updateField('billingCity', v)} />
+                    <Field label="Billing In City">
+                      <Switch
+                        checked={editData.billingInCity ?? false}
+                        onChange={(_, d) => updateField('billingInCity', d.checked)}
+                      />
+                    </Field>
                     <EditableField label="Billing Address" value={editData.billingAddress} onChange={(v) => updateField('billingAddress', v)} />
                     <EditableField label="Billing Address 2" value={editData.billingAddressTwo} onChange={(v) => updateField('billingAddressTwo', v)} />
-                    <EditableField label="Billing City" value={editData.billingCity} onChange={(v) => updateField('billingCity', v)} />
-                    <EditableField label="Billing State" value={editData.billingState} onChange={(v) => updateField('billingState', v)} />
-                    <EditableField label="Billing Zip Code" value={editData.billingZipCode} onChange={(v) => updateField('billingZipCode', v)} />
-                    <EditableField label="Billing Country" value={editData.billingCountry} onChange={(v) => updateField('billingCountry', v)} />
                   </>
                 ) : (
                   <>
                     <InfoField label="Billing Name" value={company.billingName} />
                     <InfoField label="Billing Email" value={company.billingEmail} />
                     <InfoField label="Billing Tax ID" value={company.billingTaxId} />
+                    <InfoField label="Billing Zip Code" value={company.billingZipCode} />
+                    <InfoField label="Billing State" value={company.billingState} />
+                    <InfoField label="Billing County" value={company.billingCounty} />
+                    <InfoField label="Billing City" value={company.billingCity} />
+                    <InfoField label="Billing In City" value={company.billingInCity ? 'Yes' : 'No'} />
                     <InfoField label="Billing Address" value={company.billingAddress} />
                     <InfoField label="Billing Address 2" value={company.billingAddressTwo} />
-                    <InfoField label="Billing City" value={company.billingCity} />
-                    <InfoField label="Billing State" value={company.billingState} />
-                    <InfoField label="Billing Zip Code" value={company.billingZipCode} />
-                    <InfoField label="Billing Country" value={company.billingCountry} />
                   </>
                 )}
               </div>
@@ -675,24 +796,55 @@ const CompanyDetailsPage: React.FC = () => {
                     <EditableField label="Sold To Name" value={editData.soldToName} onChange={(v) => updateField('soldToName', v)} />
                     <EditableField label="Sold To Email" value={editData.soldToEmail} onChange={(v) => updateField('soldToEmail', v)} type="email" />
                     <EditableField label="Sold To Tax ID" value={editData.soldToTaxId} onChange={(v) => updateField('soldToTaxId', v)} />
+                    <Field label="Sold To Zip Code">
+                      <div className={styles.zipWrap}>
+                        <Input
+                          value={editData.soldToZipCode}
+                          onChange={(_, d) => {
+                            updateField('soldToZipCode', d.value);
+                            if (d.value.length >= 5) {
+                              handleZipSearch(d.value, 'soldTo');
+                            } else {
+                              setPendingZip(null);
+                            }
+                          }}
+                        />
+                        {pendingZip?.target === 'soldTo' && (
+                          <div className={styles.zipPickerPanel}>
+                            <div className={styles.zipPickerHeader}>Select address</div>
+                            {pendingZip.results.map((r, i) => (
+                              <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                                {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Field>
+                    <EditableField label="Sold To State" value={editData.soldToState} onChange={(v) => updateField('soldToState', v)} />
+                    <EditableField label="Sold To County" value={editData.soldToCounty} onChange={(v) => updateField('soldToCounty', v)} />
+                    <EditableField label="Sold To City" value={editData.soldToCity} onChange={(v) => updateField('soldToCity', v)} />
+                    <Field label="Sold To In City">
+                      <Switch
+                        checked={editData.soldToInCity ?? false}
+                        onChange={(_, d) => updateField('soldToInCity', d.checked)}
+                      />
+                    </Field>
                     <EditableField label="Sold To Address" value={editData.soldToAddress} onChange={(v) => updateField('soldToAddress', v)} />
                     <EditableField label="Sold To Address 2" value={editData.soldToAddressTwo} onChange={(v) => updateField('soldToAddressTwo', v)} />
-                    <EditableField label="Sold To City" value={editData.soldToCity} onChange={(v) => updateField('soldToCity', v)} />
-                    <EditableField label="Sold To State" value={editData.soldToState} onChange={(v) => updateField('soldToState', v)} />
-                    <EditableField label="Sold To Zip Code" value={editData.soldToZipCode} onChange={(v) => updateField('soldToZipCode', v)} />
-                    <EditableField label="Sold To Country" value={editData.soldToCountry} onChange={(v) => updateField('soldToCountry', v)} />
                   </>
                 ) : (
                   <>
                     <InfoField label="Sold To Name" value={company.soldToName} />
                     <InfoField label="Sold To Email" value={company.soldToEmail} />
                     <InfoField label="Sold To Tax ID" value={company.soldToTaxId} />
+                    <InfoField label="Sold To Zip Code" value={company.soldToZipCode} />
+                    <InfoField label="Sold To State" value={company.soldToState} />
+                    <InfoField label="Sold To County" value={company.soldToCounty} />
+                    <InfoField label="Sold To City" value={company.soldToCity} />
+                    <InfoField label="Sold To In City" value={company.soldToInCity ? 'Yes' : 'No'} />
                     <InfoField label="Sold To Address" value={company.soldToAddress} />
                     <InfoField label="Sold To Address 2" value={company.soldToAddressTwo} />
-                    <InfoField label="Sold To City" value={company.soldToCity} />
-                    <InfoField label="Sold To State" value={company.soldToState} />
-                    <InfoField label="Sold To Zip Code" value={company.soldToZipCode} />
-                    <InfoField label="Sold To Country" value={company.soldToCountry} />
                   </>
                 )}
               </div>
@@ -717,14 +869,44 @@ const CompanyDetailsPage: React.FC = () => {
                             <EditableField label="Dealer Legal Name" value={editData.dealerLegalName} onChange={(v) => updateField('dealerLegalName', v)} />
                             <EditableField label="Dealer ID" value={editData.dealerId} onChange={(v) => updateField('dealerId', v)} />
                             <EditableField label="Default Make" value={editData.dealerDefaultMake} onChange={(v) => updateField('dealerDefaultMake', v)} />
+                            <Field label="Zip">
+                              <div className={styles.zipWrap}>
+                                <Input
+                                  value={editData.dealerZip}
+                                  onChange={(_, d) => {
+                                    updateField('dealerZip', d.value);
+                                    if (d.value.length >= 5) {
+                                      handleZipSearch(d.value, 'dealer');
+                                    } else {
+                                      setPendingZip(null);
+                                    }
+                                  }}
+                                />
+                                {pendingZip?.target === 'dealer' && (
+                                  <div className={styles.zipPickerPanel}>
+                                    <div className={styles.zipPickerHeader}>Select address</div>
+                                    {pendingZip.results.map((r, i) => (
+                                      <button key={i} type="button" className={styles.zipPickerOption} onClick={() => applyZipResult(r)}>
+                                        {r.city}, {r.county}, {r.state} — {r.inCity ? 'In City' : 'Out of City'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </Field>
                             <EditableField label="State" value={editData.dealerState} onChange={(v) => updateField('dealerState', v)} />
+                            <EditableField label="County" value={editData.dealerCounty} onChange={(v) => updateField('dealerCounty', v)} />
+                            <EditableField label="City" value={editData.dealerCity} onChange={(v) => updateField('dealerCity', v)} />
+                            <Field label="In City">
+                              <Switch
+                                checked={editData.dealerInCity ?? false}
+                                onChange={(_, d) => updateField('dealerInCity', d.checked)}
+                              />
+                            </Field>
                             <EditableField label="Region" value={editData.dealerRegion} onChange={(v) => updateField('dealerRegion', v)} />
                             <EditableField label="Region Code" value={editData.dealerRegionCode} onChange={(v) => updateField('dealerRegionCode', v)} />
                             <EditableField label="Area" value={editData.dealerArea} onChange={(v) => updateField('dealerArea', v)} />
                             <EditableField label="Area Code" value={editData.dealerAreaCode} onChange={(v) => updateField('dealerAreaCode', v)} />
-                            <EditableField label="County" value={editData.dealerCounty} onChange={(v) => updateField('dealerCounty', v)} />
-                            <EditableField label="City" value={editData.dealerCity} onChange={(v) => updateField('dealerCity', v)} />
-                            <EditableField label="Zip" value={editData.dealerZip} onChange={(v) => updateField('dealerZip', v)} />
                             <EditableField label="Address" value={editData.dealerAddress} onChange={(v) => updateField('dealerAddress', v)} />
                             <EditableField label="Phone" value={editData.dealerPhone} onChange={(v) => updateField('dealerPhone', v)} />
                           </>
@@ -734,14 +916,15 @@ const CompanyDetailsPage: React.FC = () => {
                             <InfoField label="Dealer Legal Name" value={company.dealerData?.dealerLegalName} />
                             <InfoField label="Dealer ID" value={company.dealerData?.dealerId} />
                             <InfoField label="Default Make" value={company.dealerData?.defaultMake} />
+                            <InfoField label="Zip" value={company.dealerData?.zip} />
                             <InfoField label="State" value={company.dealerData?.state} />
+                            <InfoField label="County" value={company.dealerData?.county} />
+                            <InfoField label="City" value={company.dealerData?.city} />
+                            <InfoField label="In City" value={company.dealerData?.inCity ? 'Yes' : 'No'} />
                             <InfoField label="Region" value={company.dealerData?.region} />
                             <InfoField label="Region Code" value={company.dealerData?.regionCode} />
                             <InfoField label="Area" value={company.dealerData?.area} />
                             <InfoField label="Area Code" value={company.dealerData?.areaCode} />
-                            <InfoField label="County" value={company.dealerData?.county} />
-                            <InfoField label="City" value={company.dealerData?.city} />
-                            <InfoField label="Zip" value={company.dealerData?.zip} />
                             <InfoField label="Address" value={company.dealerData?.address} />
                             <InfoField label="Phone" value={company.dealerData?.phone} />
                           </>
@@ -932,28 +1115,18 @@ const CompanyDetailsPage: React.FC = () => {
                   </Table>
                 </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div style={{ display: 'flex', gap: 8, marginTop: 16, alignItems: 'center' }}>
-                    <Button
-                      size="small"
-                      disabled={pageIndex === 0}
-                      onClick={() => setPageIndex((p) => p - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Text>
-                      Page {pageIndex + 1} of {totalPages} ({totalUsers} total)
-                    </Text>
-                    <Button
-                      size="small"
-                      disabled={pageIndex + 1 >= totalPages}
-                      onClick={() => setPageIndex((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                )}
+                <TablePagination
+                  page={pageIndex + 1}
+                  totalPages={totalPages}
+                  totalCount={totalUsers}
+                  pageSize={pageSize}
+                  onPageChange={(p) => setPageIndex(p - 1)}
+                  onPageSizeChange={(size) => {
+                    setPageSize(size);
+                    setPageIndex(0);
+                  }}
+                  itemLabel="users"
+                />
               </>
             )}
           </Card>
